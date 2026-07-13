@@ -1,17 +1,15 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="HTTrack Cloner Skill" width="100%">
+  <img src="docs/assets/hero-pixel.png" alt="HTTrack Cloner Skill pixel terminal hero" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Redux0223/httrack-cloner-skill/actions/workflows/ci.yml"><img src="docs/assets/stat-tests.svg" alt="123 automated tests passing" width="32%"></a>
+  <a href="SKILL.md"><img src="docs/assets/stat-stack.svg" alt="React 19 and TanStack Router stack" width="32%"></a>
+  <a href="#quick-start"><img src="docs/assets/stat-delivery.svg" alt="Local-first project delivery" width="32%"></a>
 </p>
 
 <p align="center">
   <a href="README.md"><strong>English</strong></a> · <a href="README.zh-CN.md">简体中文</a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Redux0223/httrack-cloner-skill/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Redux0223/httrack-cloner-skill/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16A085?style=for-the-badge" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/tests-123%20passing-E0A928?style=for-the-badge" alt="123 tests passing">
-  <img src="https://img.shields.io/badge/React-19-149ECA?style=for-the-badge&logo=react&logoColor=white" alt="React 19">
-  <img src="https://img.shields.io/badge/TanStack-Router-EF4444?style=for-the-badge" alt="TanStack Router">
 </p>
 
 <p align="center">
@@ -27,13 +25,13 @@
 
 <p align="center">
   <a href="docs/cases/httrack-cloner-showcase.mp4">
-    <img src="docs/cases/httrack-cloner-showcase.gif" alt="Local reconstructions of Santioni Spirits and 2xA Studio" width="100%">
+    <img src="docs/cases/httrack-cloner-showcase.gif" alt="Side-by-side comparison with the original website on the left and local React clone on the right" width="100%">
   </a>
 </p>
 
 <p align="center">
-  <strong>Santioni Spirits · 2xA Studio</strong><br>
-  Recorded from local reconstructions. Click for the higher-quality MP4.
+  <strong>Original website on the left · Local React clone on the right</strong><br>
+  Synchronized Santioni Spirits and 2xA Studio comparisons. Click for the higher-quality MP4.
 </p>
 
 Captured website source and original third-party assets are not distributed in this repository.
