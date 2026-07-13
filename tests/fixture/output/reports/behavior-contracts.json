@@ -1,0 +1,84 @@
+{
+  "summary": {
+    "events": 1,
+    "animationFrames": 0,
+    "timers": 0,
+    "observers": 0,
+    "storage": 0,
+    "history": 0,
+    "forms": 0,
+    "media": 0,
+    "canvas": 0,
+    "workers": 0,
+    "domSelectors": 1,
+    "cleanupRequirements": 1,
+    "interactionFamilies": [
+      "click"
+    ],
+    "blockingInteractionFamilies": [],
+    "parseErrorFiles": 0,
+    "unknownScriptFiles": 2
+  },
+  "files": [
+    {
+      "file": "public/assets/site.js",
+      "contentSignature": "javascript",
+      "detectedLanguage": "javascript",
+      "events": [
+        {
+          "target": "button",
+          "event": "click",
+          "line": 7,
+          "column": 1
+        }
+      ],
+      "animationFrames": [],
+      "timers": [],
+      "observers": [],
+      "storage": [],
+      "history": [],
+      "forms": [],
+      "media": [],
+      "canvas": [],
+      "workers": [],
+      "domSelectors": [
+        {
+          "selector": "#counter",
+          "operation": "querySelector",
+          "line": 1,
+          "column": 16
+        }
+      ],
+      "cleanupRequirements": [
+        {
+          "operation": "removeEventListener",
+          "target": "button",
+          "event": "click",
+          "line": 7,
+          "column": 1
+        }
+      ],
+      "interactionFamilies": [
+        "click"
+      ]
+    },
+    {
+      "file": "public/legacy/HomePage-0.js",
+      "contentSignature": "javascript",
+      "detectedLanguage": "javascript",
+      "events": [],
+      "animationFrames": [],
+      "timers": [],
+      "observers": [],
+      "storage": [],
+      "history": [],
+      "forms": [],
+      "media": [],
+      "canvas": [],
+      "workers": [],
+      "domSelectors": [],
+      "cleanupRequirements": [],
+      "interactionFamilies": []
+    }
+  ]
+}

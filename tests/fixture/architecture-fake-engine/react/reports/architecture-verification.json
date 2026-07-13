@@ -1,0 +1,42 @@
+{
+  "passed": false,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": true,
+  "businessBootstrapBundles": [],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 1,
+    "workers": 0,
+    "capturedFiles": [
+      {
+        "path": "example.com/assets/app.123.js",
+        "canvas": 1,
+        "workers": 0
+      }
+    ]
+  },
+  "engineMounted": true,
+  "runtimeCanvasSurfacePresent": true,
+  "runtimeWorkerCleanupPresent": true,
+  "runtimeRenderOutputPresent": false,
+  "capturedBootstrapReplacementProven": false,
+  "engineContracts": [
+    {
+      "file": "src/engines/demo/index.ts",
+      "passed": true,
+      "missing": [],
+      "placeholder": []
+    }
+  ],
+  "findings": [
+    {
+      "code": "engine-runtime-placeholder"
+    },
+    {
+      "code": "captured-bootstrap-replacement-unproven"
+    }
+  ]
+}

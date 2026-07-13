@@ -1,0 +1,41 @@
+{
+  "passed": false,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": true,
+  "businessBootstrapBundles": [],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 1,
+    "workers": 1,
+    "capturedFiles": [
+      {
+        "path": "example.com/assets/main.js",
+        "canvas": 1,
+        "workers": 1
+      }
+    ]
+  },
+  "engineMounted": false,
+  "runtimeCanvasSurfacePresent": false,
+  "runtimeWorkerCleanupPresent": false,
+  "runtimeRenderOutputPresent": false,
+  "capturedBootstrapReplacementProven": false,
+  "engineContracts": [],
+  "findings": [
+    {
+      "code": "runtime-engine-present-but-unisolated"
+    },
+    {
+      "code": "runtime-canvas-surface-missing"
+    },
+    {
+      "code": "runtime-worker-cleanup-missing"
+    },
+    {
+      "code": "captured-bootstrap-replacement-unproven"
+    }
+  ]
+}

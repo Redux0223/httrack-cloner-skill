@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - name: Install HTTrack
+        run: sudo apt-get update && sudo apt-get install -y httrack
+      - name: Install locked tools
+        run: npm ci --prefix scripts
+      - name: Install Chromium
+        run: npx --prefix scripts playwright install --with-deps chromium
+      - name: Validate release surface
+        run: npm run validate:skill
+      - name: Run test suite
+        run: npm test

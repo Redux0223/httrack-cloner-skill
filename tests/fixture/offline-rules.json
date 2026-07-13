@@ -1,0 +1,16 @@
+{
+  "routes": [
+    {
+      "match": "/__offline__/api.example.test/join",
+      "methods": ["POST"],
+      "status": 200,
+      "json": { "success": true }
+    },
+    {
+      "match": "/__offline__/analytics.example.test/collect",
+      "methods": ["POST"],
+      "status": 204,
+      "json": null
+    }
+  ]
+}

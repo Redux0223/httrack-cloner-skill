@@ -1,0 +1,37 @@
+{
+  "passed": false,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": true,
+  "businessBootstrapBundles": [
+    {
+      "file": "public/assets/js/app.123.js.reconstructed"
+    }
+  ],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 0,
+    "workers": 0,
+    "capturedFiles": []
+  },
+  "engineMounted": true,
+  "runtimeCanvasSurfacePresent": true,
+  "runtimeWorkerCleanupPresent": true,
+  "runtimeRenderOutputPresent": true,
+  "capturedBootstrapReplacementProven": true,
+  "engineContracts": [
+    {
+      "file": "src/engines/demo/index.ts",
+      "passed": true,
+      "missing": [],
+      "placeholder": []
+    }
+  ],
+  "findings": [
+    {
+      "code": "business-bootstrap-bundle"
+    }
+  ]
+}

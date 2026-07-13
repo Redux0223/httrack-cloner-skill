@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixture Home</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" />
+    <link rel="stylesheet" href="../fonts.googleapis.com/css2-fixture.css" />
+    <link rel="stylesheet" href="assets/site.css" />
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST"></script>
+  </head>
+  <body>
+    <main id="fixture-root">
+      <a href="about.html">About</a>
+      <h1 style="background-image: url('assets/hero.png')">Fixture</h1>
+      <img
+        src="assets/hero.png"
+        srcset="assets/hero.png 1x, assets/hero@2x.png 2x"
+        alt="Fixture hero"
+      />
+      <button id="counter" type="button">Count 0</button>
+    </main>
+    <script type="module" src="assets/site.js"></script>
+    <script>
+      window._CACHE_ = "123";
+      var bundleName = "constructed";
+      var bundlePath = "assets/" + bundleName + "." + window._CACHE_ + ".js";
+      var bundleScript = document.createElement("script");
+      bundleScript.src = bundlePath;
+      document.head.appendChild(bundleScript);
+    </script>
+  </body>
+</html>

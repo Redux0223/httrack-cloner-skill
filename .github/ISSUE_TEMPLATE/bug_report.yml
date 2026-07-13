@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible capture, conversion, verification, or delivery problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: checkboxes
+    attributes:
+      label: Authorization and privacy
+      options:
+        - label: I am authorized to test the referenced website or I am using a synthetic fixture.
+          required: true
+        - label: I removed credentials, cookies, tokens, and private captured assets.
+          required: true
+  - type: textarea
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Minimal reproduction
+      description: Prefer a synthetic fixture or a public URL you are authorized to process.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Relevant reports
+      description: Include sanitized findings from state, conversion, asset, network, or proof reports.
+  - type: input
+    attributes:
+      label: Node.js and HTTrack versions
+    validations:
+      required: true

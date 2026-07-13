@@ -1,0 +1,59 @@
+{
+  "passed": false,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": true,
+  "businessBootstrapBundles": [],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 2,
+    "workers": 1,
+    "capturedFiles": []
+  },
+  "engineMounted": false,
+  "runtimeCanvasSurfacePresent": false,
+  "runtimeWorkerCleanupPresent": false,
+  "runtimeRenderOutputPresent": false,
+  "capturedBootstrapReplacementProven": true,
+  "engineContracts": [
+    {
+      "file": "src/engines/demo/index.ts",
+      "passed": false,
+      "missing": [],
+      "placeholder": [
+        "start",
+        "resize",
+        "dispatch",
+        "destroy"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "code": "engine-contract-incomplete"
+    },
+    {
+      "code": "engine-contract-placeholder",
+      "methods": [
+        "start",
+        "resize",
+        "dispatch",
+        "destroy"
+      ]
+    },
+    {
+      "code": "engine-contract-unmounted"
+    },
+    {
+      "code": "runtime-canvas-surface-missing"
+    },
+    {
+      "code": "runtime-worker-cleanup-missing"
+    },
+    {
+      "code": "engine-runtime-placeholder"
+    }
+  ]
+}

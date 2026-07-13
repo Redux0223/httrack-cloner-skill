@@ -1,0 +1,16 @@
+{
+  "sourceUrl": "https://fixture.example/",
+  "legalConclusion": false,
+  "automatedStatus": "passed",
+  "authorizationDecision": "unverified",
+  "automatedChecks": {
+    "noAutomaticExternalRequests": true,
+    "removedTrackers": 1,
+    "stubbedThirdPartyRequests": 0,
+    "redactedCredentials": 0,
+    "outboundNavigations": 0,
+    "removedOutboundNavigations": 0,
+    "unknownRemoteLiterals": 0
+  },
+  "statement": "Automated technical and evidence assessment only; not a legal conclusion."
+}

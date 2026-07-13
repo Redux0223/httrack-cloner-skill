@@ -1,0 +1,1 @@
+/Users/apple/programme/funny_projects/httrack-cloner-skill/tests/fixture/outside-secret.txt

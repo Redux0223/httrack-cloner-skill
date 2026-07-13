@@ -1,0 +1,1 @@
+function LegacyScripts(){const script=document.createElement("script");script.src="/assets/main-deadbeef.js";document.body.appendChild(script)}

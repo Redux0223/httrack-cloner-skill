@@ -1,0 +1,41 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="80" y1="30" x2="1120" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071B2B"/>
+      <stop offset="0.48" stop-color="#0E3B45"/>
+      <stop offset="1" stop-color="#0D211F"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="310" y1="85" x2="870" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#55E6C1"/>
+      <stop offset="0.5" stop-color="#FFD166"/>
+      <stop offset="1" stop-color="#FF7A7A"/>
+    </linearGradient>
+    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M36 0H0V36" stroke="#A8E6D7" stroke-opacity="0.08"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="360" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="360" rx="24" fill="url(#grid)"/>
+  <g filter="url(#shadow)">
+    <rect x="66" y="62" width="160" height="160" rx="22" fill="#092A32" stroke="#55E6C1" stroke-width="2"/>
+    <path d="M105 111H187M105 142H170M105 173H187" stroke="#55E6C1" stroke-width="11" stroke-linecap="round"/>
+    <path d="M165 99L202 142L165 185" stroke="#FFD166" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="105" cy="111" r="6" fill="#FF7A7A"/>
+    <circle cx="105" cy="142" r="6" fill="#FFD166"/>
+    <circle cx="105" cy="173" r="6" fill="#55E6C1"/>
+  </g>
+  <text x="278" y="133" fill="url(#accent)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="56" font-weight="800">HTTrack Cloner Skill</text>
+  <text x="281" y="187" fill="#E8FFF9" font-family="ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="600">Authorized website capture to editable React + TanStack Router</text>
+  <text x="281" y="229" fill="#A8CFC8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="19">Local assets. Resumable agent workflow. Honest parity diagnostics.</text>
+  <g transform="translate(281 267)">
+    <rect width="148" height="38" rx="8" fill="#55E6C1"/>
+    <text x="74" y="25" text-anchor="middle" fill="#06242A" font-family="ui-monospace, monospace" font-size="15" font-weight="800">123 TESTS</text>
+    <rect x="160" width="175" height="38" rx="8" fill="#FFD166"/>
+    <text x="247.5" y="25" text-anchor="middle" fill="#342609" font-family="ui-monospace, monospace" font-size="15" font-weight="800">PRODUCTION-FIRST</text>
+    <rect x="347" width="154" height="38" rx="8" fill="#FF7A7A"/>
+    <text x="424" y="25" text-anchor="middle" fill="#381113" font-family="ui-monospace, monospace" font-size="15" font-weight="800">LOCAL RUNTIME</text>
+  </g>
+</svg>

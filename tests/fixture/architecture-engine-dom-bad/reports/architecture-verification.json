@@ -1,0 +1,50 @@
+{
+  "passed": false,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": false,
+  "businessBootstrapBundles": [],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 0,
+    "workers": 0,
+    "capturedFiles": []
+  },
+  "engineMounted": false,
+  "runtimeCanvasSurfacePresent": true,
+  "runtimeWorkerCleanupPresent": true,
+  "runtimeRenderOutputPresent": true,
+  "capturedBootstrapReplacementProven": true,
+  "engineContracts": [
+    {
+      "file": "src/engines/demo/index.ts",
+      "passed": false,
+      "missing": [],
+      "placeholder": [
+        "start",
+        "resize",
+        "dispatch",
+        "destroy"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "code": "visible-dom-owned-outside-react"
+    },
+    {
+      "code": "engine-contract-incomplete"
+    },
+    {
+      "code": "engine-contract-placeholder",
+      "methods": [
+        "start",
+        "resize",
+        "dispatch",
+        "destroy"
+      ]
+    }
+  ]
+}

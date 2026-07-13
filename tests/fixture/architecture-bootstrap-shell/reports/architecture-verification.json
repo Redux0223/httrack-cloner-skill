@@ -1,0 +1,48 @@
+{
+  "passed": false,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": false,
+  "businessBootstrapBundles": [],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [
+    {
+      "route": "/",
+      "src": "/legacy/HomePage-0.js",
+      "type": "text/javascript"
+    }
+  ],
+  "bootstrapOwnedShells": [
+    {
+      "route": "/",
+      "sourceFile": "src/routes/index.tsx",
+      "legacyScript": "/legacy/HomePage-0.js",
+      "visibleElements": 0
+    }
+  ],
+  "runtimeEngineEvidence": {
+    "canvas": 0,
+    "workers": 0,
+    "capturedFiles": []
+  },
+  "engineMounted": false,
+  "runtimeCanvasSurfacePresent": true,
+  "runtimeWorkerCleanupPresent": true,
+  "runtimeRenderOutputPresent": true,
+  "capturedBootstrapReplacementProven": true,
+  "engineContracts": [],
+  "findings": [
+    {
+      "code": "captured-legacy-script-not-reconstructed"
+    },
+    {
+      "code": "bootstrap-owned-shell",
+      "routes": [
+        "/"
+      ]
+    },
+    {
+      "code": "visible-dom-owned-outside-react"
+    }
+  ]
+}

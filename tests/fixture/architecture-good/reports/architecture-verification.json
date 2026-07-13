@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "tanstackRouter": true,
+  "reactOwnsVisibleDom": true,
+  "businessBootstrapBundles": [],
+  "dynamicScriptInjection": [],
+  "legacyMarkers": [],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 0,
+    "workers": 0,
+    "capturedFiles": []
+  },
+  "engineMounted": true,
+  "runtimeCanvasSurfacePresent": true,
+  "runtimeWorkerCleanupPresent": true,
+  "runtimeRenderOutputPresent": true,
+  "capturedBootstrapReplacementProven": true,
+  "engineContracts": [
+    {
+      "file": "src/engines/demo/index.ts",
+      "passed": true,
+      "missing": [],
+      "placeholder": []
+    }
+  ],
+  "findings": []
+}

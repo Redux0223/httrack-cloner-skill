@@ -1,0 +1,50 @@
+{
+  "passed": false,
+  "tanstackRouter": false,
+  "reactOwnsVisibleDom": false,
+  "businessBootstrapBundles": [
+    {
+      "file": "public/assets/main-deadbeef.js"
+    }
+  ],
+  "dynamicScriptInjection": [
+    {
+      "file": "src/main.tsx"
+    }
+  ],
+  "legacyMarkers": [
+    {
+      "file": "src/main.tsx"
+    }
+  ],
+  "capturedLegacyScripts": [],
+  "bootstrapOwnedShells": [],
+  "runtimeEngineEvidence": {
+    "canvas": 0,
+    "workers": 0,
+    "capturedFiles": []
+  },
+  "engineMounted": false,
+  "runtimeCanvasSurfacePresent": true,
+  "runtimeWorkerCleanupPresent": true,
+  "runtimeRenderOutputPresent": true,
+  "capturedBootstrapReplacementProven": true,
+  "engineContracts": [],
+  "findings": [
+    {
+      "code": "tanstack-router-missing"
+    },
+    {
+      "code": "dynamic-script-injection"
+    },
+    {
+      "code": "business-bootstrap-bundle"
+    },
+    {
+      "code": "legacy-adapter-marker"
+    },
+    {
+      "code": "visible-dom-owned-outside-react"
+    }
+  ]
+}

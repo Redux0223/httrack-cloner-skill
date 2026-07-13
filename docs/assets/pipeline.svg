@@ -1,0 +1,20 @@
+<svg width="1200" height="270" viewBox="0 0 1200 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="line" x1="90" y1="0" x2="1110" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16A085"/>
+      <stop offset="0.5" stop-color="#E0A928"/>
+      <stop offset="1" stop-color="#E85D75"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="270" rx="18" fill="#F6FAF9"/>
+  <path d="M160 116H1040" stroke="url(#line)" stroke-width="6" stroke-linecap="round"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="middle">
+    <g transform="translate(70 56)"><rect width="180" height="120" rx="12" fill="#073B4C"/><text x="90" y="48" fill="#7EF5D2" font-size="16" font-weight="700">01 CAPTURE</text><text x="90" y="78" fill="white" font-size="13">HTTrack + assets</text></g>
+    <g transform="translate(246 56)"><rect width="180" height="120" rx="12" fill="#0B5962"/><text x="90" y="48" fill="#8FF3D7" font-size="16" font-weight="700">02 ANALYZE</text><text x="90" y="78" fill="white" font-size="13">routes + bundles</text></g>
+    <g transform="translate(422 56)"><rect width="180" height="120" rx="12" fill="#2C6E67"/><text x="90" y="48" fill="#FFF0A6" font-size="16" font-weight="700">03 REBUILD</text><text x="90" y="78" fill="white" font-size="13">React + TanStack</text></g>
+    <g transform="translate(598 56)"><rect width="180" height="120" rx="12" fill="#75622D"/><text x="90" y="48" fill="#FFE08A" font-size="16" font-weight="700">04 LOCALIZE</text><text x="90" y="78" fill="white" font-size="13">runtime boundary</text></g>
+    <g transform="translate(774 56)"><rect width="180" height="120" rx="12" fill="#98504E"/><text x="90" y="48" fill="#FFD2C8" font-size="16" font-weight="700">05 VERIFY</text><text x="90" y="78" fill="white" font-size="13">build + browser</text></g>
+    <g transform="translate(950 56)"><rect width="180" height="120" rx="12" fill="#7A3047"/><text x="90" y="48" fill="#FFD5E0" font-size="16" font-weight="700">06 DELIVER</text><text x="90" y="78" fill="white" font-size="13">project + preview</text></g>
+  </g>
+  <text x="600" y="226" text-anchor="middle" fill="#31524D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">One resumable workflow, from an authorized URL to a locally editable project</text>
+</svg>

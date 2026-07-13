@@ -1,0 +1,4 @@
+interface:
+  display_name: "HTTrack Cloner Skill"
+  short_description: "Reconstruct authorized URLs as local TanStack React projects"
+  default_prompt: "Use $httrack-cloner-skill immediately on the supplied authorized URL. Autonomously reconstruct it as an editable local React, TypeScript, and TanStack Router project, remove automatic external runtime dependencies, continue through repair loops, record parity diagnostics honestly, reproduce the clean project, deliver it directly, and open the local preview in my browser."

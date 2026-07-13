@@ -1,0 +1,53 @@
+{
+  "sourceUrl": "https://fixture.example/",
+  "legalConclusion": false,
+  "decision": "unverified",
+  "basis": [],
+  "evidence": [],
+  "items": [
+    {
+      "path": "assets/fixture.woff2",
+      "sha256": "fd71bcdc64f0e38bc71bdbedbc545945e9aa1c3b32f3c8c0a18b08932b93b73f",
+      "status": "unverified",
+      "evidence": []
+    },
+    {
+      "path": "assets/hero.png",
+      "sha256": "d1adbc434e17f68534b1d1a60183c1a7587d99d3253331dfff9d5b3e874351a7",
+      "status": "unverified",
+      "evidence": []
+    },
+    {
+      "path": "assets/hero@2x.png",
+      "sha256": "b96abc48c2359c9d0fb2623098367ab2a1e408e1937b448426bf6e0ece6e532d",
+      "status": "unverified",
+      "evidence": []
+    },
+    {
+      "path": "assets/noise.png",
+      "sha256": "e7701fffac90ef34f064a51d2519e67a72f5cfaf824a80c2dd1c94f2b0536272",
+      "status": "unverified",
+      "evidence": []
+    },
+    {
+      "path": "assets/site.css",
+      "sha256": "dc219e5fc44d7acf5ec0c432d1c0c4706385be0097bc1d5ed761ce6f2d549cac",
+      "status": "unverified",
+      "evidence": []
+    },
+    {
+      "path": "assets/site.js",
+      "sha256": "d69574cf82aa5583b37a58ffe217956899a3a54e42742666f1f450476d576866",
+      "status": "unverified",
+      "evidence": []
+    },
+    {
+      "path": "legacy/HomePage-0.js",
+      "sha256": "091c9a25d3a178049ec318b0202afbdb1a3b2203c2e88a512c90ebe491d4575e",
+      "status": "unverified",
+      "evidence": []
+    }
+  ],
+  "generatedBy": "httrack-cloner-skill",
+  "statement": "This is an automated evidence inventory, not a license grant or legal conclusion."
+}

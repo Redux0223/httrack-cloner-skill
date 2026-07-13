@@ -1,0 +1,10 @@
+{
+  "input": "main-deadbeef.js",
+  "output": "runtime-source.js",
+  "inputSha256": "5fd84924f7640712396e91aa31914c8b702c7c5f60af0a208626e3eb72858c63",
+  "outputSha256": "0c70332fa54c5a5ed0a5fdd30a3a96c70f4f1f5192c69f2c121ccccbc6b096b6",
+  "sourceMapUsed": false,
+  "bundleUnpacked": false,
+  "tool": "webcrack",
+  "toolVersion": "2.16.0"
+}

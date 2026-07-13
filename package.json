@@ -1,0 +1,16 @@
+{
+  "name": "httrack-cloner-skill",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent Skill for reconstructing authorized websites as local React and TanStack Router projects",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "test:compact": "node --test --test-concurrency=1 --test-reporter=dot tests/*.test.mjs",
+    "validate:skill": "node scripts/validate-release.mjs",
+    "validate": "npm run validate:skill && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

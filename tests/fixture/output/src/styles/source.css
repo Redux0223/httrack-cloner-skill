@@ -1,0 +1,31 @@
+/* source: assets/site.css */
+@font-face {
+  font-family: "Fixture Local";
+  src: url("/assets/fixture.woff2") format("woff2");
+}
+
+:root {
+  font-family: Inter, "Fixture Local", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f7f8fa url("/assets/noise.png");
+}
+
+
+/* source: assets/site.css */
+@font-face {
+  font-family: "Fixture Local";
+  src: url("/assets/fixture.woff2") format("woff2");
+}
+
+:root {
+  font-family: Inter, "Fixture Local", sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f7f8fa url("/assets/noise.png");
+}
+
