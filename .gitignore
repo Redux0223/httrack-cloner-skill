@@ -10,6 +10,7 @@ coverage/
 *.zip
 *.tar.gz
 tests/fixture/*-output/
+tests/fixture/output/
 tests/fixture/capture-output/
 tests/fixture/unauthorized-output/
 tests/fixture/architecture-generated/
