@@ -24,6 +24,21 @@
 > [!IMPORTANT]
 > 仅用于你有权抓取、修改和重新分发的网站及资产。自动生成的授权清单只是技术证据，不构成法律意见。
 
+## 案例展示
+
+<p align="center">
+  <a href="docs/cases/httrack-cloner-showcase.mp4">
+    <img src="docs/cases/httrack-cloner-showcase.gif" alt="Why Zero 与 2xA Studio 本地重构案例展示" width="100%">
+  </a>
+</p>
+
+<p align="center">
+  <strong>所有画面均录制自本地重构项目的真实预览。</strong><br>
+  Why Zero 展示 Canvas 交互与 WebGL 滚动转场；2xA Studio 展示本地视频、生成式视觉和长页面动效。点击预览可打开高清 MP4。
+</p>
+
+视频来自已授权的本地验证任务。仓库不分发测试网站源码或原始第三方资产。
+
 ## 为什么需要它
 
 HTTrack 能下载可发现的页面和资源，但现代网站通常还包含：

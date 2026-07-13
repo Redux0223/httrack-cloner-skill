@@ -26,6 +26,21 @@ It is designed for coding agents, not as a hosted scraping service. The full SOP
 > [!IMPORTANT]
 > Use this project only for websites and assets you are authorized to capture, modify, and redistribute. The generated authorization inventory is technical evidence, not legal advice.
 
+## Showcase
+
+<p align="center">
+  <a href="docs/cases/httrack-cloner-showcase.mp4">
+    <img src="docs/cases/httrack-cloner-showcase.gif" alt="Local reconstruction showcase featuring Why Zero and 2xA Studio" width="100%">
+  </a>
+</p>
+
+<p align="center">
+  <strong>Real local previews, recorded from scroll-driven reconstructions.</strong><br>
+  Why Zero demonstrates canvas interaction and WebGL scene transitions; 2xA Studio demonstrates local video, generative visuals, and long-form page motion. Click the preview for the higher-quality MP4.
+</p>
+
+The footage is derived from authorized local validation runs. Captured website source and original third-party assets are not distributed in this repository.
+
 ## Why this project
 
 HTTrack is good at downloading what it can discover, but modern sites frequently depend on:
@@ -193,6 +208,7 @@ Real-world validation has been performed against animation-heavy, media-heavy, m
 ├── references/              # detailed migration and verification guidance
 ├── tests/                   # 123 Node test cases and local fixtures
 ├── docs/assets/             # repository-owned SVG artwork
+├── docs/cases/              # derived showcase video and README preview
 └── .github/workflows/       # CI
 ```
 
