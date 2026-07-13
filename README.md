@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero-pixel.png" alt="HTTrack Cloner Skill pixel terminal hero" width="100%">
+  <img src="docs/assets/hero-terminal.png" alt="HTTrack Cloner Skill terminal chameleon hero" width="100%">
 </p>
 
 <p align="center">
@@ -46,6 +46,10 @@ Captured website source and original third-party assets are not distributed in t
 | Localize | Local media, fonts, workers, WASM, models, and textures |
 | Verify | Typecheck, production build, route probes, and browser diagnostics |
 | Deliver | Clean project directory and opened loopback preview |
+
+<p align="center">
+  <img src="docs/assets/pipeline.svg" alt="Terminal-style HTTrack cloning pipeline" width="100%">
+</p>
 
 ## Quick start
 
