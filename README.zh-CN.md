@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero-pixel.png" alt="HTTrack Cloner Skill 像素终端 Hero" width="100%">
+  <img src="docs/assets/hero-terminal.png" alt="HTTrack Cloner Skill 终端蜥蜴 Hero" width="100%">
 </p>
 
 <p align="center">
@@ -46,6 +46,10 @@
 | 本地化 | 视频、字体、Worker、WASM、模型和纹理 |
 | 验证 | 类型检查、生产构建、路由探测和浏览器诊断 |
 | 交付 | 干净项目目录和已打开的本地预览 |
+
+<p align="center">
+  <img src="docs/assets/pipeline.svg" alt="终端风格的 HTTrack 克隆流水线" width="100%">
+</p>
 
 ## 快速开始
 

@@ -1,20 +1,31 @@
-<svg width="1200" height="270" viewBox="0 0 1200 270" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="1200" height="270" viewBox="0 0 1200 270" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
   <defs>
-    <linearGradient id="line" x1="90" y1="0" x2="1110" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#16A085"/>
-      <stop offset="0.5" stop-color="#E0A928"/>
-      <stop offset="1" stop-color="#E85D75"/>
-    </linearGradient>
+    <pattern id="matrix" width="16" height="16" patternUnits="userSpaceOnUse">
+      <text x="1" y="7" fill="#27FF39" fill-opacity="0.11" font-family="monospace" font-size="6">1</text>
+      <text x="10" y="15" fill="#0BAF25" fill-opacity="0.09" font-family="monospace" font-size="6">0</text>
+    </pattern>
   </defs>
-  <rect width="1200" height="270" rx="18" fill="#F6FAF9"/>
-  <path d="M160 116H1040" stroke="url(#line)" stroke-width="6" stroke-linecap="round"/>
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="middle">
-    <g transform="translate(70 56)"><rect width="180" height="120" rx="12" fill="#073B4C"/><text x="90" y="48" fill="#7EF5D2" font-size="16" font-weight="700">01 CAPTURE</text><text x="90" y="78" fill="white" font-size="13">HTTrack + assets</text></g>
-    <g transform="translate(246 56)"><rect width="180" height="120" rx="12" fill="#0B5962"/><text x="90" y="48" fill="#8FF3D7" font-size="16" font-weight="700">02 ANALYZE</text><text x="90" y="78" fill="white" font-size="13">routes + bundles</text></g>
-    <g transform="translate(422 56)"><rect width="180" height="120" rx="12" fill="#2C6E67"/><text x="90" y="48" fill="#FFF0A6" font-size="16" font-weight="700">03 REBUILD</text><text x="90" y="78" fill="white" font-size="13">React + TanStack</text></g>
-    <g transform="translate(598 56)"><rect width="180" height="120" rx="12" fill="#75622D"/><text x="90" y="48" fill="#FFE08A" font-size="16" font-weight="700">04 LOCALIZE</text><text x="90" y="78" fill="white" font-size="13">runtime boundary</text></g>
-    <g transform="translate(774 56)"><rect width="180" height="120" rx="12" fill="#98504E"/><text x="90" y="48" fill="#FFD2C8" font-size="16" font-weight="700">05 VERIFY</text><text x="90" y="78" fill="white" font-size="13">build + browser</text></g>
-    <g transform="translate(950 56)"><rect width="180" height="120" rx="12" fill="#7A3047"/><text x="90" y="48" fill="#FFD5E0" font-size="16" font-weight="700">06 DELIVER</text><text x="90" y="78" fill="white" font-size="13">project + preview</text></g>
+  <rect width="1200" height="270" rx="6" fill="#010402"/>
+  <rect x="1" y="1" width="1198" height="268" rx="5" stroke="#24F53B"/>
+  <rect width="1200" height="270" rx="6" fill="url(#matrix)"/>
+  <rect x="1" y="1" width="1198" height="34" fill="#031208"/>
+  <path d="M1 35H1199" stroke="#24F53B"/>
+  <rect x="18" y="13" width="8" height="8" fill="#24F53B"/>
+  <text x="38" y="23" fill="#7BFF78" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700">PIPELINE://AUTHORIZED_URL_TO_LOCAL_PROJECT</text>
+  <g fill="#24F53B"><rect x="1145" y="13" width="7" height="7"/><rect x="1162" y="13" width="7" height="7"/><rect x="1179" y="13" width="7" height="7"/></g>
+  <path d="M115 127H1085" stroke="#0B7E20" stroke-width="3"/>
+  <g font-family="SFMono-Regular, Menlo, Consolas, monospace" text-anchor="middle">
+    <g transform="translate(38 65)"><rect width="190" height="128" fill="#020A04" stroke="#24F53B"/><text x="95" y="30" fill="#24F53B" font-size="12">01://INTAKE</text><text x="95" y="58" fill="#7BFF78" font-size="18" font-weight="700">AUTHORIZED URL</text><text x="95" y="88" fill="#128B24" font-size="10">SCOPE + INVENTORY</text><rect x="27" y="105" width="136" height="5" fill="#0B5E1C"/></g>
+    <g transform="translate(272 65)"><rect width="190" height="128" fill="#020A04" stroke="#24F53B"/><text x="95" y="30" fill="#24F53B" font-size="12">02://CAPTURE</text><text x="95" y="58" fill="#7BFF78" font-size="18" font-weight="700">HTTRACK CLONE</text><text x="95" y="88" fill="#128B24" font-size="10">HTML + RUNTIME ASSETS</text><g fill="#24F53B"><rect x="55" y="104" width="12" height="12"/><rect x="75" y="100" width="12" height="16"/><rect x="95" y="96" width="12" height="20"/><rect x="115" y="92" width="12" height="24"/></g></g>
+    <g transform="translate(506 65)"><rect width="190" height="128" fill="#020A04" stroke="#24F53B"/><text x="95" y="30" fill="#24F53B" font-size="12">03://TRANSFORM</text><text x="95" y="58" fill="#7BFF78" font-size="18" font-weight="700">AGENT REBUILD</text><text x="95" y="88" fill="#128B24" font-size="10">ROUTES + BEHAVIOR</text><path d="M53 108H137" stroke="#24F53B" stroke-width="5" stroke-dasharray="9 6"/></g>
+    <g transform="translate(740 65)"><rect width="190" height="128" fill="#020A04" stroke="#24F53B"/><text x="95" y="30" fill="#24F53B" font-size="12">04://REACT</text><text x="95" y="58" fill="#7BFF78" font-size="18" font-weight="700">LOCAL PROJECT</text><text x="95" y="88" fill="#128B24" font-size="10">TANSTACK ROUTER</text><text x="95" y="112" fill="#24F53B" font-size="16">&lt;/&gt;</text></g>
+    <g transform="translate(974 65)"><rect width="190" height="128" fill="#020A04" stroke="#24F53B"/><text x="95" y="30" fill="#24F53B" font-size="12">05://DELIVER</text><text x="95" y="58" fill="#7BFF78" font-size="18" font-weight="700">OPEN PREVIEW</text><text x="95" y="88" fill="#128B24" font-size="10">BUILD + PROOF</text><text x="95" y="112" fill="#24F53B" font-size="12">STATUS: SUCCESS</text></g>
   </g>
-  <text x="600" y="226" text-anchor="middle" fill="#31524D" font-family="ui-sans-serif, system-ui, sans-serif" font-size="16">One resumable workflow, from an authorized URL to a locally editable project</text>
+  <g fill="#24F53B"><path d="M240 121H258V113L270 127L258 141V133H240V121Z"/><path d="M474 121H492V113L504 127L492 141V133H474V121Z"/><path d="M708 121H726V113L738 127L726 141V133H708V121Z"/><path d="M942 121H960V113L972 127L960 141V133H942V121Z"/></g>
+  <g transform="translate(524 205)">
+    <g fill="#24F53B"><rect x="0" y="10" width="13" height="13"/><rect x="9" y="15" width="25" height="13"/><rect x="30" y="20" width="8" height="13"/><rect x="7" y="22" width="6" height="13"/><rect x="25" y="30" width="6" height="12"/></g>
+    <rect x="4" y="13" width="3" height="3" fill="#010402"/>
+    <path d="M37 25H50V12H65V41H49V50H63" stroke="#24F53B" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"/>
+    <text x="85" y="30" fill="#7BFF78" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="12">CHAMELEON AGENT MOVING THROUGH PIPELINE...</text>
+  </g>
 </svg>
