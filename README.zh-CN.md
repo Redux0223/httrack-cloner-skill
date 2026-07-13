@@ -1,16 +1,15 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="HTTrack Cloner Skill" width="100%">
+  <img src="docs/assets/hero-pixel.png" alt="HTTrack Cloner Skill 像素终端 Hero" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Redux0223/httrack-cloner-skill/actions/workflows/ci.yml"><img src="docs/assets/stat-tests.svg" alt="123 个自动化测试通过" width="32%"></a>
+  <a href="SKILL.md"><img src="docs/assets/stat-stack.svg" alt="React 19 与 TanStack Router 技术栈" width="32%"></a>
+  <a href="#快速开始"><img src="docs/assets/stat-delivery.svg" alt="本地优先项目交付" width="32%"></a>
 </p>
 
 <p align="center">
   <a href="README.md">English</a> · <a href="README.zh-CN.md"><strong>简体中文</strong></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Redux0223/httrack-cloner-skill/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Redux0223/httrack-cloner-skill/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16A085?style=for-the-badge" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/tests-123%20passing-E0A928?style=for-the-badge" alt="123 tests passing">
-  <img src="https://img.shields.io/badge/React-19-149ECA?style=for-the-badge&logo=react&logoColor=white" alt="React 19">
 </p>
 
 <p align="center">
@@ -26,13 +25,13 @@
 
 <p align="center">
   <a href="docs/cases/httrack-cloner-showcase.mp4">
-    <img src="docs/cases/httrack-cloner-showcase.gif" alt="Santioni Spirits 与 2xA Studio 本地重构案例" width="100%">
+    <img src="docs/cases/httrack-cloner-showcase.gif" alt="左侧原网站与右侧本地 React 复刻网站的同步对比" width="100%">
   </a>
 </p>
 
 <p align="center">
-  <strong>Santioni Spirits · 2xA Studio</strong><br>
-  画面录制自本地重构项目，点击可查看高清 MP4。
+  <strong>左侧：原网站 · 右侧：本地 React 复刻</strong><br>
+  Santioni Spirits 与 2xA Studio 使用相同动作同步对比，点击可查看高清 MP4。
 </p>
 
 仓库不分发测试网站源码或原始第三方资产。

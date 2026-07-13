@@ -1,41 +1,60 @@
-<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="600" height="180" viewBox="0 0 600 180" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
   <defs>
-    <linearGradient id="bg" x1="80" y1="30" x2="1120" y2="330" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#071B2B"/>
-      <stop offset="0.48" stop-color="#0E3B45"/>
-      <stop offset="1" stop-color="#0D211F"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="310" y1="85" x2="870" y2="260" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#55E6C1"/>
-      <stop offset="0.5" stop-color="#FFD166"/>
-      <stop offset="1" stop-color="#FF7A7A"/>
-    </linearGradient>
-    <pattern id="grid" width="36" height="36" patternUnits="userSpaceOnUse">
-      <path d="M36 0H0V36" stroke="#A8E6D7" stroke-opacity="0.08"/>
+    <pattern id="matrix" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect x="1" y="1" width="1" height="1" fill="#8ECDF4" fill-opacity="0.16"/>
+      <rect x="5" y="5" width="1" height="1" fill="#F2B29B" fill-opacity="0.12"/>
     </pattern>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity="0.35"/>
-    </filter>
   </defs>
-  <rect width="1200" height="360" rx="24" fill="url(#bg)"/>
-  <rect width="1200" height="360" rx="24" fill="url(#grid)"/>
-  <g filter="url(#shadow)">
-    <rect x="66" y="62" width="160" height="160" rx="22" fill="#092A32" stroke="#55E6C1" stroke-width="2"/>
-    <path d="M105 111H187M105 142H170M105 173H187" stroke="#55E6C1" stroke-width="11" stroke-linecap="round"/>
-    <path d="M165 99L202 142L165 185" stroke="#FFD166" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-    <circle cx="105" cy="111" r="6" fill="#FF7A7A"/>
-    <circle cx="105" cy="142" r="6" fill="#FFD166"/>
-    <circle cx="105" cy="173" r="6" fill="#55E6C1"/>
+
+  <rect width="600" height="180" fill="#06162C"/>
+  <rect width="600" height="180" fill="url(#matrix)"/>
+  <rect y="0" width="600" height="3" fill="#F2B29B"/>
+  <rect y="177" width="600" height="3" fill="#8ECDF4"/>
+  <g fill="#0D2D57"><rect y="22" width="600" height="1"/><rect y="46" width="600" height="1"/><rect y="70" width="600" height="1"/><rect y="94" width="600" height="1"/><rect y="118" width="600" height="1"/><rect y="142" width="600" height="1"/></g>
+
+  <g transform="translate(12 24)">
+    <rect width="116" height="132" fill="#071A33" stroke="#F2B29B"/>
+    <rect width="116" height="12" fill="#F2B29B"/>
+    <rect x="5" y="4" width="3" height="3" fill="#071A33"/><rect x="11" y="4" width="3" height="3" fill="#071A33"/><rect x="17" y="4" width="3" height="3" fill="#071A33"/>
+    <text x="27" y="9" fill="#071A33" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="5" font-weight="700" letter-spacing="0">SOURCE://URL</text>
+    <g fill="#8ECDF4"><rect x="10" y="25" width="76" height="4"/><rect x="10" y="34" width="92" height="4"/><rect x="10" y="43" width="62" height="4"/></g>
+    <g fill="#F2B29B"><rect x="10" y="60" width="8" height="8"/><rect x="22" y="60" width="8" height="8"/><rect x="34" y="60" width="8" height="8"/><rect x="46" y="60" width="8" height="8"/><rect x="58" y="60" width="8" height="8"/><rect x="70" y="60" width="8" height="8"/></g>
+    <g fill="#FFD2C3"><rect x="10" y="77" width="92" height="3"/><rect x="10" y="85" width="74" height="3"/><rect x="10" y="93" width="84" height="3"/></g>
+    <text x="10" y="116" fill="#8ECDF4" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="6" letter-spacing="0">CAPTURE_BYTES()</text>
+    <rect x="10" y="122" width="58" height="2" fill="#F2B29B"/>
   </g>
-  <text x="278" y="133" fill="url(#accent)" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="56" font-weight="800">HTTrack Cloner Skill</text>
-  <text x="281" y="187" fill="#E8FFF9" font-family="ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="600">Authorized website capture to editable React + TanStack Router</text>
-  <text x="281" y="229" fill="#A8CFC8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="19">Local assets. Resumable agent workflow. Honest parity diagnostics.</text>
-  <g transform="translate(281 267)">
-    <rect width="148" height="38" rx="8" fill="#55E6C1"/>
-    <text x="74" y="25" text-anchor="middle" fill="#06242A" font-family="ui-monospace, monospace" font-size="15" font-weight="800">123 TESTS</text>
-    <rect x="160" width="175" height="38" rx="8" fill="#FFD166"/>
-    <text x="247.5" y="25" text-anchor="middle" fill="#342609" font-family="ui-monospace, monospace" font-size="15" font-weight="800">PRODUCTION-FIRST</text>
-    <rect x="347" width="154" height="38" rx="8" fill="#FF7A7A"/>
-    <text x="424" y="25" text-anchor="middle" fill="#381113" font-family="ui-monospace, monospace" font-size="15" font-weight="800">LOCAL RUNTIME</text>
+
+  <g transform="translate(472 24)">
+    <rect width="116" height="132" fill="#071A33" stroke="#8ECDF4"/>
+    <rect width="116" height="12" fill="#8ECDF4"/>
+    <rect x="5" y="4" width="3" height="3" fill="#071A33"/><rect x="11" y="4" width="3" height="3" fill="#071A33"/><rect x="17" y="4" width="3" height="3" fill="#071A33"/>
+    <text x="27" y="9" fill="#071A33" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="5" font-weight="700" letter-spacing="0">LOCAL://REACT</text>
+    <g fill="#F2B29B"><rect x="10" y="25" width="92" height="4"/><rect x="10" y="34" width="72" height="4"/><rect x="10" y="43" width="84" height="4"/></g>
+    <g fill="#8ECDF4"><rect x="10" y="60" width="8" height="8"/><rect x="22" y="60" width="8" height="8"/><rect x="34" y="60" width="8" height="8"/><rect x="46" y="60" width="8" height="8"/><rect x="58" y="60" width="8" height="8"/><rect x="70" y="60" width="8" height="8"/></g>
+    <g fill="#FFD2C3"><rect x="10" y="77" width="74" height="3"/><rect x="10" y="85" width="90" height="3"/><rect x="10" y="93" width="66" height="3"/></g>
+    <text x="10" y="116" fill="#F2B29B" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="6" letter-spacing="0">OPEN_PREVIEW()</text>
+    <rect x="10" y="122" width="72" height="2" fill="#8ECDF4"/>
   </g>
+
+  <g fill="#F2B29B" transform="translate(139 73)">
+    <rect x="0" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/><rect x="16" y="8" width="5" height="5"/><rect x="24" y="8" width="5" height="5"/><rect x="32" y="8" width="5" height="5"/>
+    <rect x="32" y="0" width="5" height="5"/><rect x="40" y="8" width="5" height="5"/><rect x="32" y="16" width="5" height="5"/>
+  </g>
+  <g fill="#8ECDF4" transform="translate(416 73)">
+    <rect x="0" y="8" width="5" height="5"/><rect x="8" y="8" width="5" height="5"/><rect x="16" y="8" width="5" height="5"/><rect x="24" y="8" width="5" height="5"/><rect x="32" y="8" width="5" height="5"/>
+    <rect x="0" y="0" width="5" height="5"/><rect x="0" y="16" width="5" height="5"/>
+  </g>
+
+  <g transform="translate(158 31)">
+    <text x="0" y="10" fill="#8ECDF4" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="7" font-weight="700" letter-spacing="0">SYSTEM://AUTHORIZED_RECONSTRUCTION</text>
+    <text x="0" y="47" fill="#FFF7F2" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="25" font-weight="900" letter-spacing="0">HTTRACK//</text>
+    <text x="0" y="74" fill="#F2B29B" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="25" font-weight="900" letter-spacing="0">CLONER_SKILL</text>
+    <rect x="1" y="82" width="252" height="2" fill="#8ECDF4"/>
+    <g fill="#F2B29B"><rect x="1" y="93" width="5" height="5"/><rect x="10" y="93" width="5" height="5"/><rect x="19" y="93" width="5" height="5"/></g>
+    <text x="32" y="99" fill="#A8C7E6" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="7" letter-spacing="0">HTTRACK &gt; ASSET_GRAPH &gt; REACT &gt; PROOF</text>
+    <text x="1" y="121" fill="#FFD2C3" font-family="SFMono-Regular, Menlo, Consolas, monospace" font-size="6" letter-spacing="0">[123 TESTS] [0 AUTO REMOTE] [PREVIEW READY]</text>
+  </g>
+
+  <g fill="#F2B29B"><rect x="146" y="16" width="3" height="3"/><rect x="154" y="16" width="3" height="3"/><rect x="162" y="16" width="18" height="3"/><rect x="419" y="16" width="3" height="3"/><rect x="427" y="16" width="20" height="3"/></g>
+  <g fill="#8ECDF4"><rect x="146" y="161" width="32" height="3"/><rect x="182" y="161" width="3" height="3"/><rect x="419" y="161" width="3" height="3"/><rect x="427" y="161" width="20" height="3"/></g>
 </svg>
