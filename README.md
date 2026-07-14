@@ -53,6 +53,16 @@ Captured website source and original third-party assets are not distributed in t
 
 ## Quick start
 
+### Install with your Agent
+
+Copy this sentence into Codex, Claude Code, Cursor, or another coding agent:
+
+```text
+Install httrack-cloner-skill for me from https://github.com/Redux0223/httrack-cloner-skill: first try `npx skills add Redux0223/httrack-cloner-skill -g`, then follow the repository requirements to install its dependencies, run the validation, and confirm that $httrack-cloner-skill is ready to use; if the installer is unavailable, use the manual installation steps in the README for my coding agent.
+```
+
+Or install it manually:
+
 ```bash
 git clone https://github.com/Redux0223/httrack-cloner-skill.git
 cd httrack-cloner-skill
