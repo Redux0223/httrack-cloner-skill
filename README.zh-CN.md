@@ -53,6 +53,16 @@
 
 ## 快速开始
 
+### 让 Agent 帮你安装
+
+把下面这句话复制给 Codex、Claude Code、Cursor 或其他 Coding Agent：
+
+```text
+请帮我安装 https://github.com/Redux0223/httrack-cloner-skill：先尝试运行 `npx skills add Redux0223/httrack-cloner-skill -g`，再按照仓库要求安装必要依赖、运行验证，并确认 $httrack-cloner-skill 已经可以使用；如果当前环境不支持该安装器，就按照 README 的手动安装步骤为我正在使用的 Coding Agent 完成安装。
+```
+
+也可以手动安装：
+
 ```bash
 git clone https://github.com/Redux0223/httrack-cloner-skill.git
 cd httrack-cloner-skill
