@@ -23,20 +23,20 @@ test("turns proof action exceptions into recoverable findings", () => {
   assert.match(finding.error, /locator\.click/);
 });
 
-test("records proof execution failures without blocking a built project", () => {
+test("records proof execution failures as blocking delivery failures", () => {
   const summary = buildProductionFirstProofFailureSummary(
     new Error("browser closed during screenshot"),
     { thresholdFingerprint: "locked-thresholds" },
   );
 
   assert.equal(summary.passed, false);
-  assert.equal(summary.deliveryAccepted, true);
-  assert.equal(summary.acceptanceMode, "production-first");
+  assert.equal(summary.deliveryAccepted, false);
+  assert.equal(summary.acceptanceMode, "blocking-proof-failure");
   assert.equal(summary.executionFailed, true);
   assert.match(summary.parityDiagnostics[0].error, /browser closed/);
 });
 
-test("delivers a reproducible project while reporting proof execution as diagnostic", () => {
+test("does not deliver a reproducible project when proof execution failed", () => {
   const work = mkdtempSync(join(tmpdir(), "cloner-proof-diagnostic-"));
   writeJson(join(work, "proof", "proof-contract.json"), {
     thresholdsLocked: true,
@@ -63,10 +63,10 @@ test("delivers a reproducible project while reporting proof execution as diagnos
     browser: { passed: true, skipped: false, command: "open" },
   });
 
-  assert.equal(manifest.passed, true);
-  assert.equal(manifest.delivered, true);
+  assert.equal(manifest.passed, false);
+  assert.equal(manifest.delivered, false);
   assert.equal(manifest.proofPassed, false);
-  assert.equal(manifest.proofDiagnosticAccepted, true);
+  assert.equal(manifest.proofDiagnosticAccepted, false);
 });
 
 test("does not report production-first parity differences as proof passed", () => {
@@ -84,9 +84,9 @@ test("does not report production-first parity differences as proof passed", () =
     browser: { passed: true, skipped: false, command: "open" },
   });
 
-  assert.equal(manifest.passed, true);
+  assert.equal(manifest.passed, false);
   assert.equal(manifest.proofPassed, false);
-  assert.equal(manifest.proofDiagnosticAccepted, true);
+  assert.equal(manifest.proofDiagnosticAccepted, false);
 });
 
 function writeJson(path, value) {

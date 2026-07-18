@@ -90,3 +90,98 @@ test("preserves standard XML and SVG namespace URIs during external dependency c
   assert.match(runtime, /http:\/\/www\.w3\.org\/2000\/xmlns\//);
   assert.match(runtime, /http:\/\/www\.w3\.org\/1999\/xlink/);
 });
+
+test("removes computed domain canonicalization redirects executed during script load", () => {
+  rmSync(input, { recursive: true, force: true });
+  rmSync(output, { recursive: true, force: true });
+  cpSync(join(evalRoot, "fixture/mirror"), input, { recursive: true });
+  appendFileSync(
+    join(input, "assets/site.js"),
+    [
+      "",
+      'if (window.DomainName && window.DomainName.indexOf(location.host) === -1) {',
+      '  var newurl = location.href.replace(location.host, window.DomainName);',
+      '  newurl += newurl.indexOf("?") > -1 ? "&from=" + location.host : "?from=" + location.host;',
+      "  location.href = newurl;",
+      "}",
+      "function userNavigation(url) { window.location.href = url; }",
+      "",
+    ].join("\n"),
+  );
+
+  const conversion = spawnSync(
+    process.execPath,
+    [pipeline, "--input", input, "--output", output, "--source-url", "https://fixture.example/"],
+    { encoding: "utf8" },
+  );
+  assert.equal(conversion.status, 0, conversion.stderr || conversion.stdout);
+
+  const runtime = readFileSync(join(output, "public/assets/site.js"), "utf8");
+  assert.doesNotMatch(runtime, /location\.href\s*=\s*newurl/);
+  assert.match(runtime, /void 0/);
+  assert.match(runtime, /function userNavigation\(url\) \{ window\.location\.href = url; \}/);
+
+  const manifest = JSON.parse(readFileSync(join(output, "reports/conversion-manifest.json"), "utf8"));
+  assert.ok(manifest.removedOutboundNavigations.some((finding) => finding.kind === "automatic-location-assignment"));
+});
+
+test("localizes captured CDN base variables instead of turning module paths into hash URLs", () => {
+  rmSync(input, { recursive: true, force: true });
+  rmSync(output, { recursive: true, force: true });
+  cpSync(join(evalRoot, "fixture/mirror"), input, { recursive: true });
+  appendFileSync(
+    join(input, "assets/site.js"),
+    '\nwindow.ScriptCdn = "https://cdn.example.test/";\naddScript("skinp/modules/menu.js");\nloadStyleSheet("/share/site.css");\n',
+  );
+
+  const conversion = spawnSync(
+    process.execPath,
+    [pipeline, "--input", input, "--output", output, "--source-url", "https://fixture.example/"],
+    { encoding: "utf8" },
+  );
+  assert.equal(conversion.status, 0, conversion.stderr || conversion.stdout);
+
+  const runtime = readFileSync(join(output, "public/assets/site.js"), "utf8");
+  assert.match(runtime, /window\.ScriptCdn = "\/"/);
+  assert.match(runtime, /loadStyleSheet\("share\/site\.css"\)/);
+  assert.doesNotMatch(runtime, /ScriptCdn = "#"/);
+});
+
+test("normalizes CMS stylesheet loader paths when the CDN base is declared in another script", () => {
+  rmSync(input, { recursive: true, force: true });
+  rmSync(output, { recursive: true, force: true });
+  cpSync(join(evalRoot, "fixture/mirror"), input, { recursive: true });
+  appendFileSync(join(input, "assets/site.js"), '\nloadStyleSheet("/share/site.css");\n');
+
+  const conversion = spawnSync(
+    process.execPath,
+    [pipeline, "--input", input, "--output", output, "--source-url", "https://fixture.example/"],
+    { encoding: "utf8" },
+  );
+  assert.equal(conversion.status, 0, conversion.stderr || conversion.stdout);
+
+  const runtime = readFileSync(join(output, "public/assets/site.js"), "utf8");
+  assert.match(runtime, /loadStyleSheet\("share\/site\.css"\)/);
+});
+
+test("localizes same-origin CMS script and stylesheet loader URLs", () => {
+  rmSync(input, { recursive: true, force: true });
+  rmSync(output, { recursive: true, force: true });
+  cpSync(join(evalRoot, "fixture/mirror"), input, { recursive: true });
+  appendFileSync(
+    join(input, "assets/site.js"),
+    '\naddScript("https://fixture.example/assets/module.js", function () {});\nloadStyleSheet("https://fixture.example/assets/module.css");\n',
+  );
+
+  const conversion = spawnSync(
+    process.execPath,
+    [pipeline, "--input", input, "--output", output, "--source-url", "https://fixture.example/"],
+    { encoding: "utf8" },
+  );
+  assert.equal(conversion.status, 0, conversion.stderr || conversion.stdout);
+
+  const runtime = readFileSync(join(output, "public/assets/site.js"), "utf8");
+  assert.match(runtime, /addScript\("assets\/module\.js"/);
+  assert.match(runtime, /loadStyleSheet\("assets\/module\.css"\)/);
+  assert.doesNotMatch(runtime, /addScript\("#"/);
+});

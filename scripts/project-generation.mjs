@@ -5,7 +5,6 @@ import {
   ensureDir,
   readText,
   relativeImport,
-  routeFileStem,
   safeJson,
   writeText,
 } from "./lib.mjs";
@@ -115,18 +114,34 @@ export default defineConfig({
 `;
 }
 
-function renderIndexHtml({ title, favicon }) {
+function escapeHtmlAttribute(value) {
+  return String(value).replace(/[&<>\"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+  })[character]);
+}
+
+function renderIndexHtml({ title, favicon, viewport, lang, dir }) {
   const faviconTag = favicon ? `\n    <link rel="icon" href="${favicon}" />` : "";
+  const viewportTag = viewport
+    ? `\n    <meta name="viewport" content="${escapeHtmlAttribute(viewport)}" />`
+    : "";
+  const htmlAttributes = [
+    lang ? `lang="${escapeHtmlAttribute(lang)}"` : "",
+    dir ? `dir="${escapeHtmlAttribute(dir)}"` : "",
+  ].filter(Boolean).join(" ");
   const escapedTitle = String(title || "React mirror").replace(
     /[&<>]/g,
     (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[character],
   );
   return `<!doctype html>
-<html lang="en">
+<html${htmlAttributes ? ` ${htmlAttributes}` : ""}>
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; connect-src 'self' blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />${faviconTag}
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; connect-src 'self' blob:; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:; style-src 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    ${viewportTag}${faviconTag}
     <title>${escapedTitle}</title>
   </head>
   <body>
@@ -160,6 +175,27 @@ export const Route = createRootRoute({
 `;
 }
 
+function renderCapturedHtmlTypes() {
+  return `import type * as React from "react";
+
+declare module "react" {
+  interface HTMLAttributes<T> {
+    [capturedAttribute: string]: unknown;
+  }
+
+  namespace JSX {
+    interface IntrinsicElements {
+      font: React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+        color?: string;
+        face?: string;
+        size?: string | number;
+      };
+    }
+  }
+}
+`;
+}
+
 function renderPageRoute(page, routeFile) {
   const pageImport = relativeImport(routeFile, page.pageFile).replace(/\.[^.]+$/, "");
   return `import { createFileRoute } from "@tanstack/react-router";
@@ -171,9 +207,21 @@ export const Route = createFileRoute(${JSON.stringify(page.route)})({
 `;
 }
 
+export function projectRouteFileStem(route, routes = []) {
+  if (route === "/") return "index";
+  const routeSet = new Set(routes);
+  const parts = route.replace(/^\//, "").split("/");
+  return parts.map((part, index) => {
+    const sanitized = part.replace(/[^A-Za-z0-9_$-]/g, "-");
+    const prefix = `/${parts.slice(0, index + 1).join("/")}`;
+    return index < parts.length - 1 && routeSet.has(prefix) ? `${sanitized}_` : sanitized;
+  }).join(".");
+}
+
 function renderRouteTree(pages) {
+  const routes = pages.map((page) => page.route);
   const imports = pages
-    .map((page) => `import { Route as ${routeImportName(page.route)} } from ${JSON.stringify(`./routes/${routeFileStem(page.route)}`)};`)
+    .map((page) => `import { Route as ${routeImportName(page.route)} } from ${JSON.stringify(`./routes/${projectRouteFileStem(page.route, routes)}`)};`)
     .join("\n");
   const updates = pages
     .map((page) => {
@@ -277,11 +325,16 @@ export default offlineRoutes;
 `;
 }
 
-function renderNetworkPolicy() {
+function renderNetworkPolicy(remoteAssets) {
   return `import offlineRoutes from "./offline-routes";
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const localOrigin = globalThis.location.origin;
+const remoteAssetRoutes: Record<string, string> = ${JSON.stringify(remoteAssets, null, 2)};
+const emptyScriptUrl = URL.createObjectURL(new Blob([""], { type: "text/javascript" }));
+const emptyStyleUrl = URL.createObjectURL(new Blob([""], { type: "text/css" }));
+const emptyMediaUrl = URL.createObjectURL(new Blob([], { type: "application/octet-stream" }));
+const transparentImage = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
 
 function requestUrl(input: RequestInfo | URL) {
   if (input instanceof Request) return new URL(input.url);
@@ -291,6 +344,74 @@ function requestUrl(input: RequestInfo | URL) {
 function offlinePath(url: URL) {
   return "/__offline__/" + url.host + url.pathname + url.search;
 }
+
+function mappedRemoteAsset(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value, globalThis.location.href);
+  } catch {
+    return value;
+  }
+  if (url.origin === localOrigin || url.protocol === "data:" || url.protocol === "blob:") return value;
+  return remoteAssetRoutes[url.href] || remoteAssetRoutes[url.origin + url.pathname] || null;
+}
+
+function replacementUrl(element: Element, attribute: string, value: string) {
+  const normalized = value.trim();
+  const inert = !normalized || normalized.startsWith("#") || normalized.startsWith("/__offline__/");
+  if (inert && element instanceof HTMLScriptElement) return emptyScriptUrl;
+  if (inert && element instanceof HTMLLinkElement) return emptyStyleUrl;
+  if (inert && element instanceof HTMLImageElement) return transparentImage;
+  if (inert && (element instanceof HTMLMediaElement || element instanceof HTMLSourceElement)) return emptyMediaUrl;
+  if (element instanceof HTMLScriptElement) {
+    try {
+      const url = new URL(value, globalThis.location.href);
+      if (url.origin === localOrigin && !/\.(?:c?js|mjs)$/i.test(url.pathname)) return emptyScriptUrl;
+    } catch {
+      return emptyScriptUrl;
+    }
+  }
+  const mapped = mappedRemoteAsset(value);
+  if (mapped) return mapped;
+  if (element instanceof HTMLScriptElement) return emptyScriptUrl;
+  if (element instanceof HTMLLinkElement) return emptyStyleUrl;
+  if (element instanceof HTMLImageElement) return transparentImage;
+  if (element instanceof HTMLMediaElement || element instanceof HTMLSourceElement) return emptyMediaUrl;
+  return offlinePath(new URL(value, globalThis.location.href));
+}
+
+function patchUrlProperty(prototype: object, property: string) {
+  const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+  const getter = descriptor?.get;
+  const setter = descriptor?.set;
+  if (!getter || !setter) return;
+  Object.defineProperty(prototype, property, {
+    configurable: descriptor.configurable,
+    enumerable: descriptor.enumerable,
+    get: getter,
+    set(value) {
+      setter.call(this, replacementUrl(this as Element, property, String(value)));
+    },
+  });
+}
+
+for (const [prototype, property] of [
+  [HTMLScriptElement.prototype, "src"],
+  [HTMLLinkElement.prototype, "href"],
+  [HTMLImageElement.prototype, "src"],
+  [HTMLSourceElement.prototype, "src"],
+  [HTMLVideoElement.prototype, "src"],
+  [HTMLVideoElement.prototype, "poster"],
+  [HTMLAudioElement.prototype, "src"],
+] as const) patchUrlProperty(prototype, property);
+
+const nativeSetAttribute = Element.prototype.setAttribute;
+Element.prototype.setAttribute = function (name, value) {
+  const normalized = String(name).toLowerCase();
+  const loadsResource = normalized === "src" || normalized === "poster"
+    || (normalized === "href" && this instanceof HTMLLinkElement);
+  return nativeSetAttribute.call(this, name, loadsResource ? replacementUrl(this, normalized, String(value)) : value);
+};
 
 function offlineResponse(url: URL, input: RequestInfo | URL, init?: RequestInit) {
   const method = String(init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
@@ -327,38 +448,41 @@ if (globalThis.navigator?.sendBeacon) {
 }
 
 Object.assign(globalThis, {
-  __HTTRACK_NETWORK_POLICY__: Object.freeze({ localOrigin, offlinePrefix: "/__offline__/" }),
+  __HTTRACK_NETWORK_POLICY__: Object.freeze({ localOrigin, offlinePrefix: "/__offline__/", remoteAssetRoutes }),
 });
 `;
 }
 
-export function writeTanStackProject({ output, pages, css, offlineRules, basePath = "/", title, favicon }) {
+export function writeTanStackProject({ output, pages, css, offlineRules, remoteAssets = {}, basePath = "/", title, favicon, viewport, lang, dir }) {
   ensureDir(join(output, "src/routes"));
   ensureDir(join(output, "src/runtime"));
   ensureDir(join(output, "src/styles"));
+  ensureDir(join(output, "src/types"));
 
   writeText(join(output, "package.json"), renderPackageJson());
   writeText(join(output, "package-lock.json"), readText(join(SCRIPT_DIR, "templates/react-package-lock.json")));
   writeText(join(output, "tsconfig.json"), renderTsConfig());
   writeText(join(output, "vite.config.ts"), renderViteConfig(basePath));
   writeText(join(output, "vitest.config.ts"), renderVitestConfig());
-  writeText(join(output, "index.html"), renderIndexHtml({ title, favicon }));
+  writeText(join(output, "index.html"), renderIndexHtml({ title, favicon, viewport, lang, dir }));
   writeText(join(output, "src/main.tsx"), renderMain());
   writeText(join(output, "src/routes/__root.tsx"), renderRootRoute());
+  writeText(join(output, "src/types/captured-html.d.ts"), renderCapturedHtmlTypes());
 
+  const routes = pages.map((page) => page.route);
   for (const page of pages) {
-    const routeFile = join(output, "src/routes", `${routeFileStem(page.route)}.tsx`);
+    const routeFile = join(output, "src/routes", `${projectRouteFileStem(page.route, routes)}.tsx`);
     writeText(routeFile, renderPageRoute(page, routeFile));
   }
 
   writeText(join(output, "src/runtime/offline-routes.ts"), renderOfflineRoutes(offlineRules.routes || []));
-  writeText(join(output, "src/runtime/network-policy.ts"), renderNetworkPolicy());
+  writeText(join(output, "src/runtime/network-policy.ts"), renderNetworkPolicy(remoteAssets));
   writeText(join(output, "src/styles/source.css"), `${css}\n`);
   writeText(join(output, "src/routeTree.gen.ts"), renderRouteTree(pages));
 }
 
-export function generatedRouteFile(output, route) {
-  return join(output, "src/routes", `${routeFileStem(route)}.tsx`);
+export function generatedRouteFile(output, route, routes = []) {
+  return join(output, "src/routes", `${projectRouteFileStem(route, routes)}.tsx`);
 }
 
 export function generatedPageName(pageFile) {

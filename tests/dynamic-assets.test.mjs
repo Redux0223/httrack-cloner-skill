@@ -9,6 +9,7 @@ const evalRoot = resolve("tests");
 const mirrorSource = join(evalRoot, "fixture/mirror");
 const originRoot = join(evalRoot, "fixture/origin");
 const workingMirror = join(evalRoot, "fixture/dynamic-mirror");
+const externalOutput = join(evalRoot, "fixture/external-output");
 const hints = join(evalRoot, "fixture/asset-hints.txt");
 const script = resolve("./scripts/fetch-dynamic-assets.mjs");
 
@@ -73,6 +74,85 @@ test("fetches source-origin assets referenced only inside downloaded bundles", a
   assert.equal(readFileSync(audioAsset, "utf8"), "fixture-audio\n");
   assert.equal(readFileSync(hintedAsset, "utf8"), "fixture-draco\n");
   assert.equal(readFileSync(shaderAsset, "utf8"), "{@}Fixture.vs{@}void main() {}\n");
+});
+
+test("localizes external stylesheets and lazy images used by captured HTML", async (t) => {
+  rmSync(workingMirror, { recursive: true, force: true });
+  rmSync(externalOutput, { recursive: true, force: true });
+  cpSync(mirrorSource, workingMirror, { recursive: true });
+
+  const server = createServer((request, response) => {
+    const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+    if (pathname === "/theme.css") {
+      response.setHeader("content-type", "text/css");
+      response.end('.external-hero{background-image:url("./nested.png");color:rgb(1,2,3)}\n');
+      return;
+    }
+    if (pathname === "/hero.png" || pathname === "/nested.png") {
+      response.setHeader("content-type", "image/png");
+      response.end(`fixture-${pathname.slice(1)}\n`);
+      return;
+    }
+    response.writeHead(404).end("not found");
+  });
+  await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
+  t.after(() => server.close());
+  const address = server.address();
+  const cdn = `http://127.0.0.1:${address.port}`;
+  appendFileSync(
+    join(workingMirror, "index.html"),
+    `\n<link rel="stylesheet" href="${cdn}/theme.css?theme=1&amp;variant=red"><main class="external-hero"><img src="/assets/hero.png" data-src="${cdn}/hero.png"></main>\n`,
+  );
+
+  const fetched = await new Promise((resolveRun) => {
+    const child = spawn(
+      process.execPath,
+      [script, "--mirror", workingMirror, "--source-url", "https://fixture.example/"],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => { stderr += chunk; });
+    child.on("close", (status) => resolveRun({ status, stdout, stderr }));
+  });
+  assert.equal(fetched.status, 0, fetched.stderr || fetched.stdout);
+
+  const report = JSON.parse(readFileSync(join(workingMirror, "dynamic-assets-report.json"), "utf8"));
+  const externalEntries = report.fetched.filter((entry) => entry.url.startsWith(cdn));
+  assert.equal(externalEntries.length, 3);
+  assert.ok(externalEntries.some((entry) => entry.url === `${cdn}/theme.css?theme=1&variant=red`));
+  assert.ok(externalEntries.every((entry) => !entry.url.includes("&amp;")));
+  assert.ok(externalEntries.every((entry) => entry.path.startsWith("_external/")));
+  assert.ok(externalEntries.every((entry) => existsSync(join(workingMirror, entry.path))));
+
+  const converted = await new Promise((resolveRun) => {
+    const child = spawn(
+      process.execPath,
+      [resolve("./scripts/run-pipeline.mjs"), "--input", workingMirror, "--output", externalOutput, "--source-url", "https://fixture.example/"],
+      { stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => { stderr += chunk; });
+    child.on("close", (status) => resolveRun({ status, stdout, stderr }));
+  });
+  assert.equal(converted.status, 0, converted.stderr || converted.stdout);
+
+  const css = readFileSync(join(externalOutput, "src/styles/source.css"), "utf8");
+  const home = readFileSync(join(externalOutput, "src/pages/HomePage.tsx"), "utf8");
+  const networkPolicy = readFileSync(join(externalOutput, "src/runtime/network-policy.ts"), "utf8");
+  assert.match(css, /external-hero/);
+  assert.match(css, /\/_external\/.+nested\.png/);
+  const publicExternalCss = readFileSync(join(externalOutput, externalEntries.find((entry) => entry.url.includes("theme.css")).path.replace(/^_external\//, "public/_external/")), "utf8");
+  assert.match(publicExternalCss, /\/_external\/.+nested\.png/);
+  assert.match(home, /data-src=\{"\/_external\/.+hero\.png"\}/);
+  assert.match(home, /src=\{"\/_external\/.+hero\.png"\}/);
+  assert.doesNotMatch(home, /https?:\/\/127\.0\.0\.1/);
+  assert.match(networkPolicy, /remoteAssetRoutes/);
+  assert.match(networkPolicy, /patchUrlProperty/);
+  assert.match(networkPolicy, /theme\.css\?theme=1&variant=red/);
 });
 
 test("rejects HTML fallback responses discovered as JavaScript assets", async (t) => {

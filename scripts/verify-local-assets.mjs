@@ -64,9 +64,9 @@ const scanFiles = listFiles(publicRoot).filter((file) => {
   const relativeFile = toPosix(relative(publicRoot, file));
   if (relativeFile.startsWith("_external/") && /\.html?$/i.test(relativeFile)) return false;
   const extension = extname(file).toLowerCase();
-  return markupExtensions.has(extension) || javaScriptExtensions.has(extension);
+  return [".htm", ".html"].includes(extension) || javaScriptExtensions.has(extension);
 });
-const sourceCss = join(project, "src/source.css");
+const sourceCss = join(project, "src/styles/source.css");
 if (existsSync(sourceCss)) scanFiles.push(sourceCss);
 const indexHtml = join(project, "index.html");
 if (existsSync(indexHtml)) scanFiles.push(indexHtml);

@@ -32,6 +32,7 @@ const PROOF_ACTIONS = new Set([
   "pointer-hold",
   "tap",
   "media-play",
+  "canonicalize-tabs",
   "checkpoint",
 ]);
 
@@ -53,6 +54,9 @@ function validateAction(action) {
   }
   if (action.type === "wheel" && action.repeat !== undefined && (!Number.isInteger(action.repeat) || action.repeat < 1)) {
     throw new Error("Proof action wheel repeat must be a positive integer");
+  }
+  if (action.type === "wheel" && action.align !== undefined && !["start", "end"].includes(action.align)) {
+    throw new Error("Proof action wheel align must be start or end");
   }
   if (action.type === "checkpoint" && (typeof action.id !== "string" || !action.id.trim())) {
     throw new Error("Proof action checkpoint requires an id");
@@ -112,8 +116,11 @@ function validateDeepActions(scenarios, requiredFamilies) {
 }
 
 export function buildProofContract({ sourceUrl, localUrl, routes, behaviorSummary = {} }) {
-  const canvasRequired = Number(behaviorSummary.canvas || 0) > 0;
+  const canvasRequired = Object.hasOwn(behaviorSummary, "visibleCanvasMounts")
+    ? Number(behaviorSummary.visibleCanvasMounts || 0) > 0
+    : Number(behaviorSummary.canvas || 0) > 0;
   const requiredInteractionFamilies = [...new Set(behaviorSummary.interactionFamilies || [])].sort();
+  const animatedHome = Number(behaviorSummary.animationFrames || 0) > 0;
   const scenarios = [...routes]
     .sort((left, right) => left.localeCompare(right))
     .map((route, index) => ({
@@ -131,7 +138,10 @@ export function buildProofContract({ sourceUrl, localUrl, routes, behaviorSummar
         "screenshot",
         ...(canvasRequired && route === "/" ? ["canvas-nonblank"] : []),
       ],
-      ...(canvasRequired && route === "/" ? { animationFrameSamples: 10 } : {}),
+      ...((canvasRequired || animatedHome) && route === "/" ? {
+        animationFrameSamples: animatedHome ? 12 : 10,
+        ...(animatedHome ? { animationFrameIntervalMs: 250 } : {}),
+      } : {}),
     }));
   const thresholds = { ...DEFAULT_THRESHOLDS };
   return {

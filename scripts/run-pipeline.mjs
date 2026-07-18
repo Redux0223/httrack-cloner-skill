@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { existsSync, renameSync } from "node:fs";
 import { basename, dirname, extname, join, posix, relative, resolve, sep } from "node:path";
 import { parse } from "parse5";
@@ -8,6 +9,7 @@ import {
   copyFiles,
   ensureCleanDir,
   ensureDir,
+  externalAssetRelativePath,
   findSiteRoot,
   isRemote,
   isTracker,
@@ -45,8 +47,11 @@ const ATTRIBUTE_MAP = new Map([
   ["autoplay", "autoPlay"],
   ["playsinline", "playsInline"],
   ["readonly", "readOnly"],
+  ["frameborder", "frameBorder"],
+  ["allowfullscreen", "allowFullScreen"],
   ["colspan", "colSpan"],
   ["rowspan", "rowSpan"],
+  ["srclang", "srcLang"],
   ["stroke-width", "strokeWidth"],
   ["stroke-linecap", "strokeLinecap"],
   ["stroke-linejoin", "strokeLinejoin"],
@@ -72,6 +77,21 @@ if (!existsSync(input)) throw new Error(`Input mirror does not exist: ${input}`)
 const siteRoot = findSiteRoot(input, sourceUrl);
 const sitePrefix = toPosix(relative(input, siteRoot));
 const ignoredErrorDocuments = [];
+const ignoredNonPageDocuments = [];
+const dynamicAssetReport = existsSync(join(siteRoot, "dynamic-assets-report.json"))
+  ? JSON.parse(readText(join(siteRoot, "dynamic-assets-report.json")))
+  : { fetched: [], existing: [] };
+const remoteAssetMap = new Map(
+  [...(dynamicAssetReport.fetched || []), ...(dynamicAssetReport.existing || [])]
+    .filter((entry) => isRemote(entry.url))
+    .map((entry) => [new URL(entry.url, sourceUrl).href, entry.path]),
+);
+const remoteUrlByMirrorPath = new Map(
+  [...remoteAssetMap].map(([url, path]) => [
+    sitePrefix && sitePrefix !== "." ? posix.join(sitePrefix, path) : path,
+    url,
+  ]),
+);
 
 function capturedErrorDocument(file, siteRelative) {
   try {
@@ -85,16 +105,19 @@ function capturedErrorDocument(file, siteRelative) {
       for (const child of node.childNodes || []) walk(child);
     }
     walk(document);
-    if (!canonical) return null;
-    const canonicalUrl = new URL(canonical, sourceUrl);
-    if (canonicalUrl.origin !== new URL(sourceUrl).origin) return null;
     const route = routeFromHtml(siteRelative);
-    const canonicalRoute = canonicalUrl.pathname.replace(/\/$/, "") || "/";
-    if (canonicalRoute === route) return null;
+    let canonicalRoute = null;
+    if (canonical) {
+      const canonicalUrl = new URL(canonical, sourceUrl);
+      if (canonicalUrl.origin !== new URL(sourceUrl).origin) return null;
+      canonicalRoute = canonicalUrl.pathname.replace(/\/$/, "") || "/";
+      if (canonicalRoute === route) return null;
+    }
     const title = textContent(findNode(document, "title"));
     const body = findNode(document, "body");
     const bodyClass = attrMap(body).get("class") || "";
-    if (!/(?:^|\b)(?:404|error|not[- ]found)(?:\b|$)/i.test(`${title} ${bodyClass}`)) return null;
+    const visibleBodyText = textContent(body).replace(/\s+/g, " ").trim().slice(0, 2000);
+    if (!/(?:^|\b)(?:404|403|error|not[- ]found)(?:\b|$)|找不到|无法访问|页面不存在/i.test(`${title} ${bodyClass} ${visibleBodyText}`)) return null;
     return { siteRelative, route, canonicalRoute, title: title.trim(), bodyClass };
   } catch {
     return null;
@@ -109,6 +132,17 @@ const capturedPages = listFiles(siteRoot)
     mirrorRelative: toPosix(relative(input, file)),
   }))
   .filter((page) => !page.siteRelative.startsWith("hts-cache/"))
+  .filter((page) => !page.siteRelative.startsWith("__embeds/"))
+  .filter((page) => {
+    const source = readText(page.sourceFile);
+    if (classifyAssetContent(source, { expectedExtension: extname(page.sourceFile) }) === "html") return true;
+    ignoredNonPageDocuments.push({
+      siteRelative: page.siteRelative,
+      bytes: Buffer.byteLength(source),
+      sample: source.slice(0, 120),
+    });
+    return false;
+  })
   .filter((page) => {
     const ignored = capturedErrorDocument(page.sourceFile, page.siteRelative);
     if (!ignored) return true;
@@ -161,7 +195,10 @@ const captureControlFile = (path) => (
   || /^(?:capture|dynamic-assets)-(?:stdout|stderr)\.log$/.test(path)
   || path === "dynamic-assets-report.json"
 );
-copyFiles(siteRoot, publicRoot, (path) => !/\.html?$/i.test(path) && !captureControlFile(path));
+copyFiles(siteRoot, publicRoot, (path) => (
+  (!/\.html?$/i.test(path) || path.startsWith("__embeds/"))
+  && !captureControlFile(path)
+));
 
 if (sitePrefix && sitePrefix !== ".") {
   copyFiles(input, join(publicRoot, "_external"), (path) => (
@@ -183,6 +220,7 @@ const removedExternalStyles = [];
 const removedInlineHandlers = [];
 const unresolvedAutomaticExternals = [];
 const cssChunks = [];
+const cssChunkHashes = new Set();
 const pageRecords = [];
 const stubbedRemoteRequests = [];
 const localizedRemoteRequests = [];
@@ -194,6 +232,22 @@ const removedOutboundNavigations = [];
 const removedRemoteLiterals = [];
 const runtimeAssetClassifications = [];
 const usedComponentNames = new Set();
+
+function addCssChunk(label, css) {
+  const normalized = sanitizeCapturedCss(css).trim();
+  if (!normalized) return;
+  const hash = createHash("sha256").update(normalized).digest("hex");
+  if (cssChunkHashes.has(hash)) return;
+  cssChunkHashes.add(hash);
+  cssChunks.push(`/* ${label} */\n${normalized}`);
+}
+
+function sanitizeCapturedCss(css) {
+  return String(css)
+    .replace(/^.*\{![^}\n]+!\}.*$/gm, "")
+    .replace(/([-\w]+)\s*:\s*[-\w]+\s*:\s*;/g, "/* dropped malformed $1 declaration */")
+    .replace(/^\s*;\s*$/gm, "");
+}
 
 function encodePublicPath(path) {
   return path.split("/").filter(Boolean).map(encodeURIComponent).join("/");
@@ -207,6 +261,18 @@ function runtimePublicUrl(mirrorRelativePath) {
     return `/${encodePublicPath(normalized.slice(sitePrefix.length + 1))}`;
   }
   return `/_external/${encodePublicPath(normalized)}`;
+}
+
+function localMirrorPathForRemote(value) {
+  let url;
+  try {
+    url = new URL(value, sourceUrl);
+  } catch {
+    return null;
+  }
+  const relativePath = remoteAssetMap.get(url.href) || externalAssetRelativePath(url);
+  const mirrorPath = sitePrefix && sitePrefix !== "." ? posix.join(sitePrefix, relativePath) : relativePath;
+  return existsSync(join(input, mirrorPath)) ? mirrorPath : null;
 }
 
 function findNode(root, tagName) {
@@ -245,7 +311,7 @@ function cssPropertyName(name) {
 }
 
 function styleToJsx(value, context) {
-  const entries = [];
+  const entries = new Map();
   for (const declaration of String(value).split(";")) {
     const colon = declaration.indexOf(":");
     if (colon < 0) continue;
@@ -253,9 +319,9 @@ function styleToJsx(value, context) {
     let cssValue = declaration.slice(colon + 1).trim();
     if (!name || !cssValue) continue;
     cssValue = rewriteCssUrls(cssValue, context);
-    entries.push(`${cssPropertyName(name)}: ${JSON.stringify(cssValue)}`);
+    entries.set(cssPropertyName(name), JSON.stringify(cssValue));
   }
-  return `{{ ${entries.join(", ")} } as React.CSSProperties}`;
+  return `{{ ${[...entries].map(([name, cssValue]) => `${name}: ${cssValue}`).join(", ")} } as React.CSSProperties}`;
 }
 
 function rewriteSrcSet(value, context) {
@@ -273,6 +339,11 @@ function rewriteUrl(value, context, attribute) {
   if (!value || value.startsWith("#") || /^(data:|blob:|mailto:|tel:|javascript:)/i.test(value)) return value;
   if (isRemote(value)) {
     if (attribute === "href" && context.tagName === "a") return value;
+    const mirrorPath = localMirrorPathForRemote(value);
+    if (mirrorPath) {
+      localizedRemoteRequests.push({ page: context.page.siteRelative, attribute, value, local: runtimePublicUrl(mirrorPath) });
+      return runtimePublicUrl(mirrorPath);
+    }
     if (isTracker(value)) removedTrackers.push({ page: context.page.siteRelative, value });
     else unresolvedAutomaticExternals.push({ page: context.page.siteRelative, attribute, value });
     return "";
@@ -310,9 +381,20 @@ function jsxObject(value) {
 function rewriteCssUrls(css, context) {
   return String(css).replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, (full, _quote, rawUrl) => {
     if (/^(data:|blob:|#)/i.test(rawUrl)) return full;
-    if (isRemote(rawUrl)) {
-      if (isTracker(rawUrl)) removedTrackers.push({ page: context.page.siteRelative, value: rawUrl });
-      else unresolvedAutomaticExternals.push({ page: context.page.siteRelative, attribute: "css-url", value: rawUrl });
+    const cssSourceUrl = context.cssMirrorRel ? remoteUrlByMirrorPath.get(context.cssMirrorRel) : null;
+    const resolvedRemoteUrl = isRemote(rawUrl)
+      ? rawUrl
+      : cssSourceUrl
+        ? new URL(rawUrl, cssSourceUrl).href
+        : null;
+    if (resolvedRemoteUrl) {
+      const mirrorPath = localMirrorPathForRemote(resolvedRemoteUrl);
+      if (mirrorPath) {
+        localizedRemoteRequests.push({ page: context.page.siteRelative, attribute: "css-url", value: resolvedRemoteUrl, local: runtimePublicUrl(mirrorPath) });
+        return `url(${JSON.stringify(runtimePublicUrl(mirrorPath))})`;
+      }
+      if (isTracker(resolvedRemoteUrl)) removedTrackers.push({ page: context.page.siteRelative, value: resolvedRemoteUrl });
+      else unresolvedAutomaticExternals.push({ page: context.page.siteRelative, attribute: "css-url", value: resolvedRemoteUrl });
       return "url('')";
     }
     const mirrorPath = resolveMirrorPath({ href: rawUrl, pageMirrorRel: context.cssMirrorRel || context.page.mirrorRelative, sitePrefix });
@@ -328,8 +410,25 @@ function jsxAttribute(attr, context) {
     return null;
   }
   let name = ATTRIBUTE_MAP.get(rawName) || rawName;
+  if (name === "value" && ["input", "textarea", "select"].includes(context.tagName)) name = "defaultValue";
+  if (name === "checked" && context.tagName === "input") name = "defaultChecked";
   if (name === "style") return `style=${styleToJsx(attr.value, context)}`;
   if (name === "srcSet") return `${name}={${JSON.stringify(rewriteSrcSet(attr.value, context))}}`;
+  if (["data-src", "data-original", "data-lazy-src"].includes(rawName)) {
+    const value = rewriteUrl(attr.value, context, "src");
+    return value ? `${rawName}={${JSON.stringify(value)}}` : null;
+  }
+  if (isRemote(attr.value) && (rawName.startsWith("data-") || (rawName === "rel" && context.tagName !== "link"))) {
+    const value = rewriteUrl(attr.value, context, rawName);
+    return value ? `${rawName}={${JSON.stringify(value)}}` : null;
+  }
+  if (name === "src" && context.tagName === "iframe") {
+    const match = attr.value.match(/^https?:\/\/(?:www[.])?youtube[.]com\/embed\/([^?&#/]+)/i);
+    if (match) {
+      const mirrorPath = posix.join(sitePrefix === "." ? "" : sitePrefix, "__embeds/youtube", `${match[1]}.html`);
+      if (existsSync(join(input, mirrorPath))) return `src={${JSON.stringify(runtimePublicUrl(mirrorPath))}}`;
+    }
+  }
   if (["src", "poster", "action"].includes(name)) {
     const value = rewriteUrl(attr.value, context, name);
     return value ? `${name}={${JSON.stringify(value)}}` : null;
@@ -354,28 +453,62 @@ function nodeToJsx(node, context, depth = 2) {
   const childContext = { ...context, tagName: node.tagName };
   const linkTarget = internalLinkTarget(node, childContext);
   const renderedTag = linkTarget ? "Link" : node.tagName;
-  const attributes = (node.attrs || [])
-    .filter((attr) => !(linkTarget && attr.name === "href"))
+  const rawAttributes = node.attrs || [];
+  const nodeAttributes = attrMap(node);
+  const mapId = node.tagName === "div" && String(nodeAttributes.get("class") || "").split(/\s+/).includes("mapContainer")
+    ? nodeAttributes.get("id")
+    : null;
+  const mapSnapshotMirrorPath = mapId
+    ? posix.join(sitePrefix === "." ? "" : sitePrefix, "__embeds", `${mapId}.png`)
+    : null;
+  const mapSnapshot = mapSnapshotMirrorPath && existsSync(join(input, mapSnapshotMirrorPath))
+    ? runtimePublicUrl(mapSnapshotMirrorPath)
+    : null;
+  const lazySource = ["img", "source", "video"].includes(node.tagName)
+    ? rawAttributes.find((attr) => ["data-src", "data-original", "data-lazy-src"].includes(attr.name))
+    : null;
+  const attributes = rawAttributes
+    .filter((attr) => !(linkTarget && attr.name === "href") && !(lazySource && attr.name === "src"))
+    .filter((attr) => !(
+      ["audio", "video", "source"].includes(node.tagName)
+      && attr.name === "src"
+      && (!attr.value.trim() || attr.value.trim().startsWith("#") || attr.value.trim().startsWith("/__offline__/"))
+    ))
     .map((attr) => jsxAttribute(attr, childContext))
     .filter(Boolean);
+  if (lazySource) {
+    const value = rewriteUrl(lazySource.value, childContext, "src");
+    if (value) attributes.push(`src={${JSON.stringify(value)}}`);
+  }
   if (linkTarget) {
     attributes.unshift(`to={${JSON.stringify(linkTarget.route)}}`);
     if (Object.keys(linkTarget.search).length > 0) attributes.push(`search={${jsxObject(linkTarget.search)}}`);
     if (linkTarget.hash) attributes.push(`hash={${JSON.stringify(linkTarget.hash)}}`);
   }
+  if (mapSnapshot) attributes.push('data-offline-embed-snapshot={"canvas"}');
   const opening = attributes.length ? `<${renderedTag} ${attributes.join(" ")}` : `<${renderedTag}`;
   if (VOID_TAGS.has(node.tagName)) return `${indent}${opening} />`;
   const children = (node.childNodes || []).map((child) => nodeToJsx(child, childContext, depth + 1)).filter(Boolean);
+  if (mapSnapshot) {
+    const childIndent = "  ".repeat(depth + 1);
+    children.unshift(
+      `${childIndent}<img src={${JSON.stringify(mapSnapshot)}} alt={""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } as React.CSSProperties} />`,
+      `${childIndent}<a href={"#"} style={{ position: "absolute", inset: 0, color: "transparent", pointerEvents: "none" } as React.CSSProperties}>{"Vertek ©2026 Tencent - GS(2026)1191号 地图 卫星"}</a>`,
+    );
+  }
   if (children.length === 0) return `${indent}${opening}></${renderedTag}>`;
   return `${indent}${opening}>\n${children.join("\n")}\n${indent}</${renderedTag}>`;
 }
 
 function collectDocumentAssets(document, page) {
+  const html = findNode(document, "html");
   const head = findNode(document, "head");
+  const htmlAttrs = attrMap(html || { attrs: [] });
   const titleNode = findNode(head || document, "title");
   const title = titleNode?.childNodes?.find((node) => node.nodeName === "#text")?.value || basename(page.siteRelative);
   const scripts = [];
   const dataScripts = [];
+  let viewport = null;
   let inlineIndex = 0;
 
   const nodes = [];
@@ -386,22 +519,32 @@ function collectDocumentAssets(document, page) {
   walk(document);
 
   for (const node of nodes) {
+    if (node.tagName === "meta") {
+      const attrs = attrMap(node);
+      if (String(attrs.get("name") || "").toLowerCase() === "viewport") viewport = attrs.get("content") || "";
+    }
     if (node.tagName === "style") {
       const css = (node.childNodes || []).filter((child) => child.nodeName === "#text").map((child) => child.value).join("");
-      cssChunks.push(`/* inline: ${page.siteRelative} */\n${rewriteCssUrls(css, { page })}`);
+      addCssChunk(`inline: ${page.siteRelative}`, rewriteCssUrls(css, { page }));
     }
     if (node.tagName === "link") {
       const attrs = attrMap(node);
       if (attrs.get("rel") !== "stylesheet") continue;
       const href = attrs.get("href") || "";
       if (isRemote(href)) {
-        removedExternalStyles.push({ page: page.siteRelative, href });
+        const cssMirrorRel = localMirrorPathForRemote(href);
+        if (!cssMirrorRel) {
+          removedExternalStyles.push({ page: page.siteRelative, href });
+          continue;
+        }
+        addCssChunk(`source: ${cssMirrorRel}`, rewriteCssUrls(readText(join(input, cssMirrorRel)), { page, cssMirrorRel }));
+        localizedRemoteRequests.push({ page: page.siteRelative, attribute: "stylesheet", value: href, local: runtimePublicUrl(cssMirrorRel) });
         continue;
       }
       const cssMirrorRel = resolveMirrorPath({ href, pageMirrorRel: page.mirrorRelative, sitePrefix });
       const cssPath = join(input, cssMirrorRel);
       if (!existsSync(cssPath)) continue;
-      cssChunks.push(`/* source: ${cssMirrorRel} */\n${rewriteCssUrls(readText(cssPath), { page, cssMirrorRel })}`);
+      addCssChunk(`source: ${cssMirrorRel}`, rewriteCssUrls(readText(cssPath), { page, cssMirrorRel }));
     }
     if (node.tagName === "script") {
       const attrs = attrMap(node);
@@ -416,7 +559,9 @@ function collectDocumentAssets(document, page) {
           if (existsSync(sourcePath)) code = readText(sourcePath);
           else unresolvedAutomaticExternals.push({ page: page.siteRelative, attribute: "data-script", value: src, cause: "missing-local-asset" });
         } else if (src) {
-          unresolvedAutomaticExternals.push({ page: page.siteRelative, attribute: "data-script", value: src, cause: "remote-data-script" });
+          const mirrorPath = localMirrorPathForRemote(src);
+          if (mirrorPath) code = readText(join(input, mirrorPath));
+          else unresolvedAutomaticExternals.push({ page: page.siteRelative, attribute: "data-script", value: src, cause: "remote-data-script" });
         }
         dataScripts.push({
           attrs: (node.attrs || []).filter((attr) => attr.name !== "src"),
@@ -426,6 +571,12 @@ function collectDocumentAssets(document, page) {
       }
       if (src) {
         if (isRemote(src)) {
+          const mirrorPath = localMirrorPathForRemote(src);
+          if (mirrorPath) {
+            scripts.push({ src: runtimePublicUrl(mirrorPath), type: type || "text/javascript" });
+            localizedRemoteRequests.push({ page: page.siteRelative, attribute: "script", value: src, local: runtimePublicUrl(mirrorPath) });
+            continue;
+          }
           if (isTracker(src)) removedTrackers.push({ page: page.siteRelative, value: src });
           else unresolvedAutomaticExternals.push({ page: page.siteRelative, attribute: "script", value: src });
           continue;
@@ -446,7 +597,14 @@ function collectDocumentAssets(document, page) {
     }
   }
 
-  return { title, scripts, dataScripts };
+  return {
+    title,
+    scripts,
+    dataScripts,
+    viewport,
+    lang: htmlAttrs.get("lang") || "",
+    dir: htmlAttrs.get("dir") || "",
+  };
 }
 
 function dataScriptToJsx(script, page) {
@@ -515,8 +673,18 @@ for (const page of pages) {
     runtimeAdapter.mount,
   ].join("\n");
   const pageFile = join(output, "src/pages", `${name}.tsx`);
-  writeText(pageFile, `import { Link } from "@tanstack/react-router";\nimport React, { useEffect } from "react";\n\n${runtimeAdapter.declaration}export default function ${name}() {\n${runtimeAdapter.call}  useEffect(() => {\n    document.title = ${JSON.stringify(head.title)};\n    const previousClass = document.body.className;\n    document.body.className = ${JSON.stringify(bodyAttrs.get("class") || "")};\n    return () => { document.body.className = previousClass; };\n  }, []);\n\n  return (\n    <>\n${jsx || "      <div />"}\n    </>\n  );\n}\n`);
-  pageRecords.push({ route, name, pageFile, scripts: head.scripts, heading, title: head.title });
+  writeText(pageFile, `import { Link } from "@tanstack/react-router";\nimport React, { useEffect } from "react";\n\n${runtimeAdapter.declaration}export default function ${name}() {\n${runtimeAdapter.call}  useEffect(() => {\n    document.title = ${JSON.stringify(head.title)};\n    const previousClass = document.body.className;\n    const previousLang = document.documentElement.lang;\n    const previousDir = document.documentElement.dir;\n    document.body.className = ${JSON.stringify(bodyAttrs.get("class") || "")};\n    document.documentElement.lang = ${JSON.stringify(head.lang)};\n    document.documentElement.dir = ${JSON.stringify(head.dir)};\n    return () => {\n      document.body.className = previousClass;\n      document.documentElement.lang = previousLang;\n      document.documentElement.dir = previousDir;\n    };\n  }, []);\n\n  return (\n    <>\n${jsx || "      <div />"}\n    </>\n  );\n}\n`);
+  pageRecords.push({
+    route,
+    name,
+    pageFile,
+    scripts: head.scripts,
+    heading,
+    title: head.title,
+    viewport: head.viewport,
+    lang: head.lang,
+    dir: head.dir,
+  });
 }
 
 for (const file of listFiles(publicRoot)) {
@@ -575,20 +743,40 @@ for (const file of listFiles(publicRoot)) {
   }
 }
 
+for (const file of listFiles(publicRoot)) {
+  if (extname(file).toLowerCase() !== ".css") continue;
+  const publicRelative = toPosix(relative(publicRoot, file));
+  const cssMirrorRel = sitePrefix && sitePrefix !== "." ? posix.join(sitePrefix, publicRelative) : publicRelative;
+  writeText(file, rewriteCssUrls(readText(file), { page: pages[0], cssMirrorRel }));
+}
+
 const offlineRules = args["offline-rules"]
   ? JSON.parse(readText(resolve(String(args["offline-rules"]))))
   : { routes: [] };
 const rootPage = pageRecords.find((page) => page.route === "/") || pageRecords[0];
 const faviconCandidates = ["favicon.ico", "favicon.svg", "favicon.png", "assets/brand/favicon.svg", "assets/brand/favicon.png"];
 const favicon = faviconCandidates.find((path) => existsSync(join(publicRoot, ...path.split("/"))));
+const remoteAssets = {};
+for (const [remoteUrl, relativePath] of remoteAssetMap) {
+  const mirrorPath = sitePrefix && sitePrefix !== "." ? posix.join(sitePrefix, relativePath) : relativePath;
+  if (!existsSync(join(input, mirrorPath))) continue;
+  const localUrl = runtimePublicUrl(mirrorPath);
+  const url = new URL(remoteUrl, sourceUrl);
+  remoteAssets[url.href] = localUrl;
+  remoteAssets[url.origin + url.pathname] ||= localUrl;
+}
 writeTanStackProject({
   output,
   pages: pageRecords,
   css: cssChunks.join("\n\n"),
   offlineRules,
+  remoteAssets,
   basePath: String(args["base-path"] || "/"),
   title: rootPage?.title,
   favicon: favicon ? `/${encodePublicPath(favicon)}` : null,
+  viewport: rootPage?.viewport || null,
+  lang: rootPage?.lang || "",
+  dir: rootPage?.dir || "",
 });
 inspectGeneratedSite({ output, publicRoot, pageRecords });
 
@@ -609,6 +797,7 @@ const manifest = {
   routes: pageRecords.map((page) => page.route),
   duplicateRoutePages,
   ignoredErrorDocuments,
+  ignoredNonPageDocuments,
   conversionMode: "react-structure-with-legacy-script-adapters",
   runtimeExternalReferences,
   unresolvedCountByCause,
