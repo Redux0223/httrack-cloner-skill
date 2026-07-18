@@ -12,14 +12,15 @@ export function synthesizeProofProfile(contract, reactOwnedUi = {}) {
   const inventory = (reactOwnedUi.routes || []).find((route) => route.route === primary.route) || {};
   const hasFormSelector = Array.isArray(inventory.formSelectors) && inventory.formSelectors.length > 0;
   const hasMediaSelector = Array.isArray(inventory.mediaSelectors) && inventory.mediaSelectors.length > 0;
-  const canvasSelector = first(inventory.canvasSelectors, "canvas");
+  const canvasSelector = first(inventory.canvasSelectors, null);
   const clickSelector = first(inventory.interactiveSelectors, canvasSelector || "body");
   const formSelector = first(inventory.formSelectors, 'input:not([type="hidden"]), textarea, select');
   const mediaSelector = first(inventory.mediaSelectors, "video, audio");
   const holdSelector = first(inventory.canvasSelectors, clickSelector || "body");
   const actions = [
     { type: "goto", route: primary.route },
-    { type: "wait-for-network-idle" },
+    { type: "wait-for-network-idle", settleMs: 1500 },
+    { type: "canonicalize-tabs", settleMs: 600 },
   ];
 
   if (required.has("touch")) actions.push({ type: "tap", selector: clickSelector });
@@ -36,11 +37,11 @@ export function synthesizeProofProfile(contract, reactOwnedUi = {}) {
     selector: mediaSelector,
     ...(!hasMediaSelector ? { optional: true } : {}),
   });
-  if (required.has("pointer-drag")) actions.push({ type: "pointer-circle", selector: canvasSelector, steps: 80 });
+  if (required.has("pointer-drag")) actions.push({ type: "pointer-circle", selector: canvasSelector || clickSelector || "body", steps: 80 });
   if (required.has("scroll")) {
     actions.push(
       { type: "checkpoint", id: "before-scroll-flow", selector: "body" },
-      { type: "wheel", deltaY: 720, repeat: 6, intervalMs: 80 },
+      { type: "wheel", deltaY: 720, repeat: 6, intervalMs: 80, align: "end" },
       { type: "wait-for-time", ms: 300 },
       { type: "checkpoint", id: "after-scroll-flow", selector: "body", requireChangeFrom: "before-scroll-flow" },
     );
@@ -60,7 +61,11 @@ export function synthesizeProofProfile(contract, reactOwnedUi = {}) {
     : {
         id: `generated-route-${index}`,
         route: scenario.route,
-        actions: [{ type: "goto", route: scenario.route }, { type: "wait-for-network-idle" }],
+        actions: [
+          { type: "goto", route: scenario.route },
+          { type: "wait-for-network-idle", settleMs: 1500 },
+          { type: "canonicalize-tabs", settleMs: 600 },
+        ],
       });
   return {
     schemaVersion: 1,

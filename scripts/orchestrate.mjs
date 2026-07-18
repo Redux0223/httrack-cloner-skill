@@ -530,8 +530,7 @@ export function buildDeliveryManifest({
 export function evaluatePreOpenDeliveryGate({ project, previewUrl, proofSummary, reproducibility }) {
   const proofEvaluation = evaluateProofSummary({ project, proofSummary });
   const reproducibilityEvaluation = evaluateReproducibilityReport(reproducibility);
-  const proofAccepted = proofEvaluation.passed === true || proofEvaluation.deliveryAccepted === true;
-  const passed = proofAccepted && reproducibilityEvaluation.passed && proofEvaluation.repairHistorySatisfied;
+  const passed = proofEvaluation.passed === true && reproducibilityEvaluation.passed && proofEvaluation.repairHistorySatisfied;
   return {
     schemaVersion: 1,
     passed,
@@ -591,14 +590,9 @@ function validateProofArtifacts({ project, proofSummaryFile }) {
   const findings = [];
   if (!summary) findings.push("summary-missing-or-invalid");
   if (!contract) findings.push("contract-missing-or-invalid");
-  const productionFirstAccepted = summary?.deliveryAccepted === true && summary?.acceptanceMode === "production-first";
-  const proofExecutionDiagnostic = productionFirstAccepted && summary?.executionFailed === true;
-  if (summary?.passed !== true && !productionFirstAccepted) findings.push("summary-not-passed");
+  if (summary?.passed !== true) findings.push("summary-not-passed");
   if (contract?.thresholdsLocked !== true || typeof contract?.thresholdFingerprint !== "string") findings.push("thresholds-unlocked");
   if (summary?.thresholdFingerprint !== contract?.thresholdFingerprint) findings.push("threshold-fingerprint-mismatch");
-  if (proofExecutionDiagnostic) {
-    return { passed: false, deliveryAccepted: findings.length === 0, findings, summary, contract, contractFile };
-  }
   if (contract?.dynamicProofRequired) {
     const environmentIds = new Set((contract.environments || []).map((environment) => environment.id));
     if (!environmentIds.has("desktop") || !environmentIds.has("mobile")) findings.push("dynamic-environment-coverage-incomplete");
@@ -610,7 +604,7 @@ function validateProofArtifacts({ project, proofSummaryFile }) {
     findings.push("scenario-coverage-incomplete");
   }
   for (const scenario of summary?.scenarios || []) {
-    if (!productionFirstAccepted && (scenario?.passed !== true || (scenario.findings || []).length > 0)) {
+    if (scenario?.passed !== true || (scenario.findings || []).length > 0) {
       findings.push(`scenario-failed:${scenario?.id || "unknown"}`);
     }
     for (const side of ["source", "local"]) {
@@ -624,10 +618,7 @@ function validateProofArtifacts({ project, proofSummaryFile }) {
       findings.push(`image-evidence-incomplete:${scenario?.id || "unknown"}`);
     }
   }
-  if (productionFirstAccepted) {
-    return { passed: false, deliveryAccepted: findings.length === 0, findings, summary, contract, contractFile };
-  }
-  return { passed: findings.length === 0, findings, summary, contract, contractFile };
+  return { passed: findings.length === 0, deliveryAccepted: false, findings, summary, contract, contractFile };
 }
 
 function evaluateProofSummary({ project, proofSummary, proofPassed: fallbackPassed = null }) {
@@ -647,7 +638,7 @@ function evaluateProofSummary({ project, proofSummary, proofPassed: fallbackPass
 
   return {
     passed: artifactValidation.passed && fallbackPassed !== false && !supersededByFailedProof && repairHistorySatisfied,
-    deliveryAccepted: artifactValidation.deliveryAccepted === true && fallbackPassed !== false && !supersededByFailedProof && repairHistorySatisfied,
+    deliveryAccepted: false,
     repairHistorySatisfied,
     findings: artifactValidation.findings,
   };
@@ -856,8 +847,8 @@ export function buildProductionFirstProofFailureSummary(error, contract = {}) {
   const finding = normalizeProofExecutionFailure(error);
   return {
     passed: false,
-    deliveryAccepted: true,
-    acceptanceMode: "production-first",
+    deliveryAccepted: false,
+    acceptanceMode: "blocking-proof-failure",
     executionFailed: true,
     thresholdFingerprint: contract.thresholdFingerprint ?? null,
     scenarios: [],
@@ -1070,17 +1061,35 @@ export async function runAutonomousClone(options) {
         previewState ||= await startPreview({ output, work, requestedPort: options.port ? Number(options.port) : null });
         const manifest = JSON.parse(readText(join(output, "reports/conversion-manifest.json")));
         const behavior = JSON.parse(readText(join(output, "reports/behavior-contracts.json")));
+        const uiReportFile = join(output, "reports/react-owned-ui.json");
+        const uiReport = existsSync(uiReportFile) ? JSON.parse(readText(uiReportFile)) : extractReactOwnedUi(output);
+        const uiRoutes = uiReport.routes || [];
+        const primaryUi = uiRoutes.find((route) => route.route === "/") || uiRoutes[0] || {};
+        const hasForms = (primaryUi.formSelectors || []).length > 0;
+        const hasMedia = (primaryUi.mediaSelectors || []).length > 0;
+        const hasInteractive = (primaryUi.interactiveSelectors || []).some((selector) => !["a", "body", "html"].includes(selector));
+        const hasCanvas = (primaryUi.canvasSelectors || []).length > 0;
+        const interactionFamilies = (behavior.summary?.interactionFamilies || []).filter((family) => {
+          if (family === "forms") return hasForms;
+          if (family === "media") return hasMedia;
+          if (family === "pointer-drag" || family === "press-and-hold") return hasCanvas;
+          if (family === "click" || family === "touch" || family === "keyboard") return hasInteractive;
+          return true;
+        });
         const sourceOracle = loadSourceOracle({ work, sourceUrl });
         const baseContract = buildProofContract({
           sourceUrl: String(sourceOracle?.previewUrl || options.sourcePreview || sourceUrl),
           localUrl: previewState.url,
           routes: manifest.routes,
-          behaviorSummary: behavior.summary,
+          behaviorSummary: {
+            ...behavior.summary,
+            interactionFamilies,
+            visibleCanvasMounts: primaryUi.canvasSelectors?.length || 0,
+          },
         });
         const profileFile = join(output, "reports/proof-profile.json");
-        if (baseContract.dynamicProofRequired && !existsSync(profileFile)) {
-          const uiReportFile = join(output, "reports/react-owned-ui.json");
-          const uiReport = existsSync(uiReportFile) ? JSON.parse(readText(uiReportFile)) : extractReactOwnedUi(output);
+        const existingProfile = existsSync(profileFile) ? JSON.parse(readText(profileFile)) : null;
+        if (baseContract.dynamicProofRequired && (!existingProfile || existingProfile.generated)) {
           writeText(profileFile, safeJson(synthesizeProofProfile(baseContract, uiReport)));
         }
         const contract = existsSync(profileFile)
@@ -1095,27 +1104,25 @@ export async function runAutonomousClone(options) {
           summary = buildProductionFirstProofFailureSummary(error, contract);
           writeText(join(work, "proof/proof-summary.json"), safeJson(summary));
           return {
-            passed: true,
+            passed: false,
+            recoverable: true,
             artifacts: [contractFile, join(work, "proof/proof-summary.json")],
             findings: summary.parityDiagnostics,
           };
         }
         if (!summary.passed) {
-          summary.deliveryAccepted = true;
-          summary.acceptanceMode = "production-first";
+          summary.deliveryAccepted = false;
+          summary.acceptanceMode = "blocking-parity-failure";
           summary.parityDiagnostics = summary.scenarios.flatMap((scenario) => scenario.findings || []);
           writeText(join(work, "proof/proof-summary.json"), safeJson(summary));
         }
         return summary.passed
           ? { passed: true, artifacts: [contractFile, join(work, "proof/proof-summary.json")] }
           : {
-              passed: true,
+              passed: false,
+              recoverable: true,
               artifacts: [contractFile, join(work, "proof/proof-summary.json")],
-              findings: [{
-                code: "parity-diagnostics",
-                acceptanceMode: "production-first",
-                findings: summary.parityDiagnostics,
-              }],
+              findings: [{ code: "parity-proof-failed", findings: summary.parityDiagnostics }],
             };
       }
 

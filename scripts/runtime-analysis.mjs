@@ -66,6 +66,7 @@ function ancestorWalk(program, visitors) {
 
 const NETWORK_CALLS = new Set(["fetch", "sendBeacon"]);
 const NETWORK_CONSTRUCTORS = new Set(["WebSocket", "EventSource", "Worker", "SharedWorker"]);
+const DYNAMIC_LOAD_CALLS = new Set(["addScript", "addScripts", "loadStyleSheet"]);
 const LOAD_ATTRIBUTES = new Set(["src", "poster", "action"]);
 const NAVIGATION_ATTRIBUTES = new Set(["href"]);
 const INERT_URL_PREFIXES = [
@@ -277,6 +278,40 @@ function expressionName(node) {
   return node.type;
 }
 
+function isLocationObject(node) {
+  if (!node) return false;
+  if (node.type === "Identifier") return node.name === "location";
+  return (
+    node.type === "MemberExpression"
+    && propertyName(node) === "location"
+    && node.object.type === "Identifier"
+    && ["window", "globalThis", "document"].includes(node.object.name)
+  );
+}
+
+function isImmediateLocationAssignment(node) {
+  if (node.type !== "AssignmentExpression") return false;
+  if (isLocationObject(node.left)) return true;
+  return node.left.type === "MemberExpression"
+    && propertyName(node.left) === "href"
+    && isLocationObject(node.left.object);
+}
+
+function isImmediateLocationCall(node) {
+  return node.type === "CallExpression"
+    && node.callee.type === "MemberExpression"
+    && ["assign", "replace"].includes(propertyName(node.callee))
+    && isLocationObject(node.callee.object);
+}
+
+function executesDuringScriptLoad(ancestors) {
+  return !ancestors.some((ancestor) => (
+    ancestor.type === "FunctionDeclaration"
+    || ancestor.type === "FunctionExpression"
+    || ancestor.type === "ArrowFunctionExpression"
+  ));
+}
+
 function behaviorLocation(node) {
   return {
     line: node.loc?.start.line || 1,
@@ -391,6 +426,12 @@ export function analyzeJavaScript(source) {
       const constants = scopedConstants(program, ancestors, node.start);
       const name = calleeName(node.callee);
       if (NETWORK_CALLS.has(name)) record(automatic, name, node, node.arguments[0], constants);
+      if (DYNAMIC_LOAD_CALLS.has(name) && node.arguments.length > 0) {
+        const candidates = node.arguments[0].type === "ArrayExpression"
+          ? node.arguments[0].elements.filter(Boolean)
+          : [node.arguments[0]];
+        for (const candidate of candidates) record(automatic, name, node, candidate, constants);
+      }
       let recordedXhr = false;
       if (name === "open" && node.arguments.length >= 2) {
         const method = evaluate(node.arguments[0], constants).value.toUpperCase();
@@ -491,6 +532,48 @@ function neutralizeRemoteUrls(source) {
   return { source: sanitized, removed };
 }
 
+function localizeCdnBases(source) {
+  const program = parseProgram(source);
+  const edits = [];
+  const localized = [];
+  const isCdnName = (name) => /(?:^|_)(?:script|asset|static)?cdn(?:url|base)?$/i.test(String(name || ""));
+  const replaceRemoteBase = (name, valueNode) => {
+    const value = evaluate(valueNode, new Map());
+    if (!isCdnName(name) || !value.complete || !looksRemote(value.value)) return;
+    edits.push({ start: valueNode.start, end: valueNode.end, replacement: JSON.stringify("/") });
+    localized.push(value.value);
+  };
+  simpleWalk(program, {
+    VariableDeclarator(node) {
+      if (node.id.type === "Identifier" && node.init) replaceRemoteBase(node.id.name, node.init);
+    },
+    AssignmentExpression(node) {
+      const name = node.left.type === "Identifier" ? node.left.name : propertyName(node.left);
+      replaceRemoteBase(name, node.right);
+    },
+  });
+  // CMS loaders commonly keep ScriptCdn and stylesheet calls in separate files.
+  // A localized "/" CDN base plus a root-prefixed path would otherwise become //host/path.
+  simpleWalk(program, {
+    CallExpression(node) {
+      if (!DYNAMIC_LOAD_CALLS.has(calleeName(node.callee)) || node.arguments.length === 0) return;
+      const candidates = node.arguments[0].type === "ArrayExpression"
+        ? node.arguments[0].elements.filter(Boolean)
+        : [node.arguments[0]];
+      for (const candidate of candidates) {
+        const value = evaluate(candidate, new Map());
+        if (!value.complete || !/^\/(?!\/)/.test(value.value)) continue;
+        edits.push({ start: candidate.start, end: candidate.end, replacement: JSON.stringify(value.value.slice(1)) });
+      }
+    },
+  });
+  let localizedSource = source;
+  for (const edit of edits.sort((left, right) => right.start - left.start)) {
+    localizedSource = localizedSource.slice(0, edit.start) + edit.replacement + localizedSource.slice(edit.end);
+  }
+  return { source: localizedSource, localized };
+}
+
 function concreteUrl(urlValue) {
   const wildcard = urlValue.indexOf("*");
   return wildcard >= 0 ? urlValue.slice(0, wildcard) : urlValue;
@@ -515,11 +598,35 @@ function localPath(urlValue, sourceUrl) {
 
 export function sanitizeJavaScript(source, { sourceUrl }) {
   const sourceOrigin = new URL(sourceUrl).origin;
-  const before = analyzeJavaScript(source);
+  const cdnResult = localizeCdnBases(source);
+  const before = analyzeJavaScript(cdnResult.source);
   const editsByNode = new Map();
   const localizedRemoteRequests = [];
   const stubbedRemoteRequests = [];
   const removedOutboundNavigations = before.navigation.map(({ origins, ...finding }) => finding);
+
+  ancestorWalk(before.program, {
+    AssignmentExpression(node, _state, ancestors) {
+      if (!isImmediateLocationAssignment(node) || !executesDuringScriptLoad(ancestors)) return;
+      editsByNode.set(node, { start: node.start, end: node.end, replacement: "void 0" });
+      removedOutboundNavigations.push({
+        kind: "automatic-location-assignment",
+        url: evaluate(node.right, scopedConstants(before.program, ancestors, node.start)).value,
+        line: node.loc?.start.line || 1,
+        column: (node.loc?.start.column || 0) + 1,
+      });
+    },
+    CallExpression(node, _state, ancestors) {
+      if (!isImmediateLocationCall(node) || !executesDuringScriptLoad(ancestors)) return;
+      editsByNode.set(node, { start: node.start, end: node.end, replacement: "void 0" });
+      removedOutboundNavigations.push({
+        kind: `automatic-location-${propertyName(node.callee)}`,
+        url: evaluate(node.arguments[0], scopedConstants(before.program, ancestors, node.start)).value,
+        line: node.loc?.start.line || 1,
+        column: (node.loc?.start.column || 0) + 1,
+      });
+    },
+  });
 
   for (const finding of before.automatic) {
     const remoteOrigins = finding.origins.filter((node) => {
@@ -532,7 +639,8 @@ export function sanitizeJavaScript(source, { sourceUrl }) {
     for (const originNode of remoteOrigins) {
       const originValue = evaluate(originNode, new Map()).value;
       const originUrl = new URL(concreteUrl(originValue), sourceUrl);
-      const replacement = originUrl.origin === sourceOrigin ? localPath(originValue, sourceUrl) : offlinePath(originValue, sourceUrl);
+      let replacement = originUrl.origin === sourceOrigin ? localPath(originValue, sourceUrl) : offlinePath(originValue, sourceUrl);
+      if (DYNAMIC_LOAD_CALLS.has(finding.kind)) replacement = replacement.replace(/^\/+/, "");
       editsByNode.set(originNode, {
         start: originNode.start,
         end: originNode.end,
@@ -545,7 +653,7 @@ export function sanitizeJavaScript(source, { sourceUrl }) {
     else stubbedRemoteRequests.push(record);
   }
 
-  let sanitized = source;
+  let sanitized = cdnResult.source;
   const edits = [...editsByNode.values()].sort((left, right) => right.start - left.start);
   for (const edit of edits) {
     sanitized = sanitized.slice(0, edit.start) + edit.replacement + sanitized.slice(edit.end);
@@ -568,6 +676,6 @@ export function sanitizeJavaScript(source, { sourceUrl }) {
     unresolvedRemoteRequests: [],
     redactedCredentials: credentialResult.findings,
     removedOutboundNavigations,
-    removedRemoteLiterals: remoteLiteralResult.removed,
+    removedRemoteLiterals: [...cdnResult.localized, ...remoteLiteralResult.removed],
   };
 }

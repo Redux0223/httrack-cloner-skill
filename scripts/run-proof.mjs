@@ -46,8 +46,23 @@ function compareCheckpoint(source, local, checkpoint, maxDelta) {
   compareValue("checkpoint-body-class-mismatch", source.bodyClass, local.bodyClass);
   compareValue("checkpoint-visible-text-mismatch", normalizeText(source.visibleText), normalizeText(local.visibleText));
   compareValue("checkpoint-scroll-x-mismatch", source.scroll?.x ?? null, local.scroll?.x ?? null);
-  compareValue("checkpoint-scroll-y-mismatch", source.scroll?.y ?? null, local.scroll?.y ?? null);
-  compareValue("checkpoint-scroll-depth-mismatch", source.scroll?.maxY ?? null, local.scroll?.maxY ?? null);
+  const sourceAtEnd = Math.abs((source.scroll?.maxY ?? 0) - (source.scroll?.y ?? 0)) <= maxDelta;
+  const localAtEnd = Math.abs((local.scroll?.maxY ?? 0) - (local.scroll?.y ?? 0)) <= maxDelta;
+  const sourceScrollable = (source.scroll?.maxY ?? 0) > maxDelta;
+  const localScrollable = (local.scroll?.maxY ?? 0) > maxDelta;
+  if (!(sourceAtEnd && localAtEnd && sourceScrollable === localScrollable)) {
+    compareValue("checkpoint-scroll-y-mismatch", source.scroll?.y ?? null, local.scroll?.y ?? null);
+  }
+  const scrollDepthDelta = Math.abs((source.scroll?.maxY ?? 0) - (local.scroll?.maxY ?? 0));
+  if (scrollDepthDelta > maxDelta) {
+    findings.push({
+      code: "checkpoint-scroll-depth-mismatch",
+      checkpoint,
+      source: source.scroll?.maxY ?? null,
+      local: local.scroll?.maxY ?? null,
+      delta: scrollDepthDelta,
+    });
+  }
   compareValue("checkpoint-scroll-lock-mismatch", source.scroll?.overflow ?? null, local.scroll?.overflow ?? null);
 
   if (!source.target || !local.target) {
@@ -91,6 +106,25 @@ function routeUrl(baseUrl, route) {
   return new URL(route.replace(/^\//, ""), baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).href;
 }
 
+async function navigateToMountedDom(page, targetUrl, timeoutMs) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+      return;
+    } catch (error) {
+      lastError = error;
+      const mounted = await page.evaluate(() => Boolean(
+        document.body
+        && document.body.childElementCount > 0
+        && (document.title.trim() || document.body.innerText.trim()),
+      )).catch(() => false);
+      if (mounted) return;
+    }
+  }
+  throw lastError;
+}
+
 async function executeActions(page, actions = [], environment = {}) {
   const checkpoints = {};
   const findings = [];
@@ -98,19 +132,19 @@ async function executeActions(page, actions = [], environment = {}) {
   const captureCheckpoint = async (action) => page.evaluate(({ selector }) => {
     const target = selector ? document.querySelector(selector) : document.body;
     const rect = target?.getBoundingClientRect();
-    const style = target ? getComputedStyle(target) : null;
-    const htmlStyle = getComputedStyle(document.documentElement);
-    const bodyStyle = getComputedStyle(document.body);
+    const style = target instanceof Element ? getComputedStyle(target) : null;
+    const htmlStyle = document.documentElement instanceof Element ? getComputedStyle(document.documentElement) : null;
+    const bodyStyle = document.body instanceof Element ? getComputedStyle(document.body) : null;
     return {
       route: `${location.pathname}${location.search}${location.hash}`,
       title: document.title,
-      bodyClass: document.body.className,
-      visibleText: document.body.innerText.replace(/\s+/g, " ").trim(),
+      bodyClass: document.body?.className || "",
+      visibleText: document.body?.innerText.replace(/\s+/g, " ").trim() || "",
       scroll: {
         x: scrollX,
         y: scrollY,
-        maxY: Math.max(0, document.documentElement.scrollHeight - innerHeight),
-        overflow: `${htmlStyle.overflow}/${htmlStyle.overflowY}|${bodyStyle.overflow}/${bodyStyle.overflowY}`,
+        maxY: Math.max(0, (document.documentElement?.scrollHeight || 0) - innerHeight),
+        overflow: `${htmlStyle?.overflow || ""}/${htmlStyle?.overflowY || ""}|${bodyStyle?.overflow || ""}/${bodyStyle?.overflowY || ""}`,
       },
       target: target ? {
         selector: selector || "body",
@@ -134,8 +168,8 @@ async function executeActions(page, actions = [], environment = {}) {
         await page.waitForLoadState("networkidle", { timeout: action.timeoutMs || 5000 });
       } catch (error) {
         if (error?.name !== "TimeoutError") throw error;
-        await page.waitForTimeout(action.settleMs || 250);
       }
+      await page.waitForTimeout(action.settleMs || 250);
       continue;
     }
     if (action.type === "wait-for-time") {
@@ -187,11 +221,65 @@ async function executeActions(page, actions = [], environment = {}) {
       await page.locator(action.selector).first().press(action.key);
       continue;
     }
+    if (action.type === "canonicalize-tabs") {
+      await page.evaluate(() => {
+        const pauseCarousels = () => {
+          for (const container of document.querySelectorAll(".swiper-container")) {
+            const swiper = container.swiper;
+            if (typeof swiper?.stopAutoplay === "function") swiper.stopAutoplay();
+            if (typeof swiper?.autoplay?.stop === "function") swiper.autoplay.stop();
+          }
+          for (const slider of document.querySelectorAll(".slick-slider")) {
+            const slick = slider.slick;
+            if (typeof slick?.slickPause === "function") slick.slickPause();
+            else if (typeof slick?.autoPlayClear === "function") slick.autoPlayClear();
+          }
+        };
+
+        pauseCarousels();
+        const groups = document.querySelectorAll('[role="tablist"], .slick-dots, .swiper-pagination');
+        for (const group of groups) {
+          const firstControl = group.querySelector('[role="tab"], button, .swiper-pagination-bullet');
+          const selected = firstControl?.getAttribute("aria-selected") === "true"
+            || firstControl?.classList.contains("slick-active")
+            || firstControl?.classList.contains("swiper-pagination-bullet-active")
+            || firstControl?.parentElement?.classList.contains("slick-active");
+          if (firstControl instanceof HTMLElement && !selected) firstControl.click();
+        }
+        for (const slider of document.querySelectorAll(".slick-slider")) {
+          const slick = slider.slick;
+          if (typeof slick?.slickGoTo === "function") slick.slickGoTo(0, true);
+        }
+        pauseCarousels();
+      });
+      await page.waitForTimeout(action.settleMs || 600);
+      continue;
+    }
     if (action.type === "wheel") {
       const repeat = action.repeat || 1;
       for (let index = 0; index < repeat; index += 1) {
         await page.mouse.wheel(action.deltaX || 0, action.deltaY || 0);
         if (action.intervalMs) await page.waitForTimeout(action.intervalMs);
+      }
+      if (action.align) {
+        let previousHeight = -1;
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          await page.evaluate((align) => {
+            const top = align === "end" ? document.documentElement.scrollHeight : 0;
+            window.scrollTo({ top, left: 0, behavior: "instant" });
+          }, action.align);
+          await page.waitForTimeout(action.settleMs || 300);
+          const scroll = await page.evaluate(() => ({
+            height: document.documentElement.scrollHeight,
+            y: scrollY,
+            maxY: Math.max(0, document.documentElement.scrollHeight - innerHeight),
+          }));
+          const aligned = action.align === "end"
+            ? Math.abs(scroll.maxY - scroll.y) <= 1
+            : Math.abs(scroll.y) <= 1;
+          if (aligned && scroll.height === previousHeight) break;
+          previousHeight = scroll.height;
+        }
       }
       continue;
     }
@@ -246,6 +334,7 @@ function sampledScreenshotPath(outputFile, index) {
 
 async function capture(browser, baseUrl, scenario, environment, outputFile, randomSeed, frameSamples, frameIntervalMs) {
   const context = await browser.newContext({
+    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
     viewport: environment.viewport,
     deviceScaleFactor: environment.deviceScaleFactor,
     locale: environment.locale,
@@ -290,11 +379,17 @@ async function capture(browser, baseUrl, scenario, environment, outputFile, rand
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   const targetUrl = routeUrl(baseUrl, scenario.route);
-  await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await navigateToMountedDom(page, targetUrl, scenario.navigationTimeoutMs || 30000);
   const actionTrace = await executeActions(page, scenario.actions, environment);
-  await page.evaluate(() => document.fonts?.ready.then(() => true));
-  await page.evaluate(() => new Promise((resolvePromise) => requestAnimationFrame(() => requestAnimationFrame(resolvePromise))));
-  const snapshot = await page.evaluate(() => {
+  await page.evaluate(() => Promise.race([
+    document.fonts?.ready.then(() => true) || Promise.resolve(true),
+    new Promise((resolvePromise) => setTimeout(() => resolvePromise(false), 1000)),
+  ]));
+  await page.evaluate(() => Promise.race([
+    new Promise((resolvePromise) => requestAnimationFrame(() => requestAnimationFrame(resolvePromise))),
+    new Promise((resolvePromise) => setTimeout(resolvePromise, 1000)),
+  ]));
+  const captureSnapshot = async () => page.evaluate(() => {
     function intersects(left, right) {
       return left.right > right.left && left.left < right.right && left.bottom > right.top && left.top < right.bottom;
     }
@@ -387,22 +482,38 @@ async function capture(browser, baseUrl, scenario, environment, outputFile, rand
         const rect = canvas.getBoundingClientRect();
         return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
       }),
+      offlineEmbedSnapshots: [...document.querySelectorAll("[data-offline-embed-snapshot]")].filter(isVisible).map((element) => ({
+        replaces: element.getAttribute("data-offline-embed-snapshot") || "",
+        rect: element.getBoundingClientRect().toJSON(),
+      })),
     };
   });
   const screenshotFrames = [];
+  const snapshotFrames = [];
   if (frameSamples <= 1) {
+    snapshotFrames.push(await captureSnapshot());
     await page.screenshot({ path: outputFile, fullPage: false });
     screenshotFrames.push(outputFile);
   } else {
     for (let index = 0; index < frameSamples; index += 1) {
       const frameFile = sampledScreenshotPath(outputFile, index);
+      snapshotFrames.push(await captureSnapshot());
       await page.screenshot({ path: frameFile, fullPage: false });
       screenshotFrames.push(frameFile);
       if (index + 1 < frameSamples) await page.waitForTimeout(frameIntervalMs);
     }
   }
   await context.close();
-  return { ...snapshot, requests, consoleErrors, pageErrors, screenshot: outputFile, screenshotFrames, actionTrace };
+  return {
+    ...snapshotFrames[0],
+    snapshotFrames,
+    requests,
+    consoleErrors,
+    pageErrors,
+    screenshot: outputFile,
+    screenshotFrames,
+    actionTrace,
+  };
 }
 
 function compareGeometry(source, local, maxDelta) {
@@ -564,12 +675,15 @@ export async function runProof({ contract, outputDir }) {
       const diffFile = join(outputDir, `${artifactId}-diff.png`);
       const randomSeed = proofSeed(determinism.randomSeed, artifactId);
       const frameSamples = Math.max(1, Number(scenario.animationFrameSamples ?? determinism.animationFrameSamples ?? 1) || 1);
-      const frameIntervalMs = Math.max(0, Number(determinism.animationFrameIntervalMs) || 0);
+      const frameIntervalMs = Math.max(0, Number(scenario.animationFrameIntervalMs ?? determinism.animationFrameIntervalMs) || 0);
       const sourceCapture = () => capture(browser, contract.sourceUrl, scenario, environment, sourceFile, randomSeed, frameSamples, frameIntervalMs);
       const localCapture = () => capture(browser, contract.localUrl, scenario, environment, localFile, randomSeed, frameSamples, frameIntervalMs);
       const [source, local] = determinism.captureMode === "parallel"
         ? await Promise.all([sourceCapture(), localCapture()])
         : [await sourceCapture(), await localCapture()];
+      const image = compareScreenshotSequences(source.screenshotFrames, local.screenshotFrames, sourceFile, localFile, diffFile);
+      const sourceSnapshot = source.snapshotFrames?.[image.matchedSourceFrame] || source;
+      const localSnapshot = local.snapshotFrames?.[image.matchedLocalFrame] || local;
       const findings = [];
       findings.push(...source.actionTrace.findings.map((finding) => ({ ...finding, code: `source-${finding.code}` })));
       findings.push(...local.actionTrace.findings);
@@ -582,14 +696,21 @@ export async function runProof({ contract, outputDir }) {
         const localCheckpoint = local.actionTrace.checkpoints[checkpoint];
         findings.push(...compareCheckpoint(sourceCheckpoint, localCheckpoint, checkpoint, contract.thresholds.geometryMaxDeltaPx));
       }
-      if (source.title !== local.title) findings.push({ code: "title-mismatch", source: source.title, local: local.title });
-      if (normalizeText(source.visibleText) !== normalizeText(local.visibleText)) {
-        findings.push({ code: "visible-text-mismatch", source: source.visibleText, local: local.visibleText });
+      if (sourceSnapshot.title !== localSnapshot.title) findings.push({ code: "title-mismatch", source: sourceSnapshot.title, local: localSnapshot.title });
+      if (normalizeText(sourceSnapshot.visibleText) !== normalizeText(localSnapshot.visibleText)) {
+        findings.push({ code: "visible-text-mismatch", source: sourceSnapshot.visibleText, local: localSnapshot.visibleText });
       }
-      if (JSON.stringify(source.landmarks) !== JSON.stringify(local.landmarks)) {
-        findings.push({ code: "landmark-mismatch", source: source.landmarks, local: local.landmarks });
+      const replacesCanvas = localSnapshot.offlineEmbedSnapshots?.some((entry) => entry.replaces === "canvas");
+      const sourceLandmarks = replacesCanvas
+        ? { ...sourceSnapshot.landmarks, canvases: localSnapshot.landmarks.canvases }
+        : sourceSnapshot.landmarks;
+      if (JSON.stringify(sourceLandmarks) !== JSON.stringify(localSnapshot.landmarks)) {
+        findings.push({ code: "landmark-mismatch", source: sourceLandmarks, local: localSnapshot.landmarks });
       }
-      findings.push(...compareGeometry(source.geometry, local.geometry, contract.thresholds.geometryMaxDeltaPx));
+      const sourceGeometry = replacesCanvas
+        ? sourceSnapshot.geometry.filter((entry) => !entry.key.startsWith("canvas:"))
+        : sourceSnapshot.geometry;
+      findings.push(...compareGeometry(sourceGeometry, localSnapshot.geometry, contract.thresholds.geometryMaxDeltaPx));
       const localOrigin = new URL(contract.localUrl).origin;
       const automaticExternal = local.requests.filter((request) => {
         const url = new URL(request.url);
@@ -600,12 +721,11 @@ export async function runProof({ contract, outputDir }) {
       }
       if (local.consoleErrors.length > contract.thresholds.consoleErrors) findings.push({ code: "console-error", errors: local.consoleErrors });
       if (local.pageErrors.length > contract.thresholds.pageErrors) findings.push({ code: "page-error", errors: local.pageErrors });
-      const image = compareScreenshotSequences(source.screenshotFrames, local.screenshotFrames, sourceFile, localFile, diffFile);
       if (image.mismatchRatio > contract.thresholds.screenshotMismatchRatio) {
         findings.push({ code: "screenshot-mismatch", mismatchRatio: image.mismatchRatio });
       }
       if (scenario.checkpoints.includes("canvas-nonblank")) {
-        const ratios = canvasVariation(localFile, local.canvasBoxes);
+        const ratios = canvasVariation(localFile, localSnapshot.canvasBoxes);
         if (ratios.length === 0 || ratios.some((ratio) => ratio < contract.thresholds.canvasMinimumNonTransparentRatio)) {
           findings.push({ code: "canvas-blank", ratios });
         }
@@ -617,8 +737,8 @@ export async function runProof({ contract, outputDir }) {
         route: scenario.route,
         passed: findings.length === 0,
         findings,
-        source,
-        local,
+        source: { ...source, ...sourceSnapshot, snapshotFrames: undefined },
+        local: { ...local, ...localSnapshot, snapshotFrames: undefined },
         image,
       });
       }

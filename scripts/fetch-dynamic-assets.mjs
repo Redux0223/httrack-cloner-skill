@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
+import { parse } from "parse5";
 import {
   classifyAssetContent,
   ensureDir,
+  externalAssetRelativePath,
+  isTracker,
   isRuntimeTextAsset,
   listFiles,
   parseArgs,
@@ -35,6 +38,15 @@ const processedPaths = new Set();
 const scannedFiles = new Set();
 const rounds = [];
 const hintedCandidates = new Map();
+const sourceUrlByRelativePath = new Map();
+const previousReportPath = join(mirror, "dynamic-assets-report.json");
+
+if (existsSync(previousReportPath)) {
+  const previousReport = JSON.parse(readText(previousReportPath));
+  for (const entry of [...(previousReport.fetched || []), ...(previousReport.existing || [])]) {
+    if (entry.path && entry.url) sourceUrlByRelativePath.set(entry.path, entry.url);
+  }
+}
 
 function resolveCandidate(raw, foundIn) {
   if (!raw || /^(data:|blob:|#)/i.test(raw)) return null;
@@ -44,14 +56,18 @@ function resolveCandidate(raw, foundIn) {
   try {
     const extension = extname(foundIn).toLowerCase();
     const fileRelative = [".css", ".html", ".htm"].includes(extension) || raw.startsWith("./") || raw.startsWith("../");
-    const base = fileRelative ? new URL(foundIn, source) : source;
+    const capturedSourceUrl = sourceUrlByRelativePath.get(foundIn);
+    const base = capturedSourceUrl ? new URL(capturedSourceUrl) : fileRelative ? new URL(foundIn, source) : source;
     url = new URL(raw, base);
   } catch {
     return null;
   }
-  if (url.origin !== source.origin || !extensions.has(extname(url.pathname).toLowerCase())) return null;
-  const relativePath = decodeURIComponent(url.pathname.replace(/^\/+/, ""));
+  if (!extensions.has(extname(url.pathname).toLowerCase()) || isTracker(url.href)) return null;
+  const relativePath = url.origin === source.origin
+    ? decodeURIComponent(url.pathname.replace(/^\/+/, ""))
+    : externalAssetRelativePath(url);
   if (!relativePath || relativePath.includes("..")) return null;
+  sourceUrlByRelativePath.set(relativePath, url.href);
   return { relativePath, url: url.href, foundIn };
 }
 
@@ -77,6 +93,30 @@ const rootedAssetPattern = new RegExp(
 const relativeAssetPattern = new RegExp(`(?:\\.\\.?\\/)(?:[A-Za-z0-9_@.%+() -]+\\/)*[A-Za-z0-9_@.%+() -]+\\.(?:${extensionPattern})(?:\\?[^\\s"'\\x60)]*)?`, "gi");
 const cssUrlPattern = /url\(\s*["']?([^"')\s]+)["']?\s*\)/gi;
 
+function htmlAssetReferences(text) {
+  const references = [];
+  const document = parse(text);
+  function walk(node) {
+    if (node.tagName) {
+      const attributes = new Map((node.attrs || []).map((attribute) => [attribute.name, attribute.value]));
+      const rel = String(attributes.get("rel") || "").split(/\s+/);
+      if (node.tagName === "link" && rel.some((value) => ["stylesheet", "preload", "modulepreload", "icon"].includes(value))) {
+        references.push(attributes.get("href"));
+      }
+      if (node.tagName === "script") references.push(attributes.get("src"));
+      if (["img", "source", "video", "audio", "track", "embed", "input"].includes(node.tagName)) {
+        for (const name of ["src", "data-src", "data-original", "data-lazy-src", "poster"]) references.push(attributes.get(name));
+        for (const candidate of String(attributes.get("srcset") || "").split(",")) references.push(candidate.trim().split(/\s+/)[0]);
+      }
+      const style = attributes.get("style") || "";
+      for (const match of style.matchAll(cssUrlPattern)) references.push(match[1]);
+    }
+    for (const child of node.childNodes || []) walk(child);
+  }
+  walk(document);
+  return references.filter(Boolean);
+}
+
 function scanNewFiles() {
   const discovered = new Map();
   for (const file of listFiles(mirror)) {
@@ -86,13 +126,21 @@ function scanNewFiles() {
     if (scannedFiles.has(foundIn)) continue;
     scannedFiles.add(foundIn);
     const text = readText(file);
-    for (const match of text.matchAll(rootedAssetPattern)) {
-      const candidate = resolveCandidate(match[0], foundIn);
-      if (candidate) discovered.set(candidate.relativePath, candidate);
+    if ([".html", ".htm"].includes(extension)) {
+      for (const reference of htmlAssetReferences(text)) {
+        const candidate = resolveCandidate(reference, foundIn);
+        if (candidate) discovered.set(candidate.relativePath, candidate);
+      }
     }
-    for (const match of text.matchAll(relativeAssetPattern)) {
-      const candidate = resolveCandidate(match[0], foundIn);
-      if (candidate) discovered.set(candidate.relativePath, candidate);
+    if (![".html", ".htm"].includes(extension)) {
+      for (const match of text.matchAll(rootedAssetPattern)) {
+        const candidate = resolveCandidate(match[0], foundIn);
+        if (candidate) discovered.set(candidate.relativePath, candidate);
+      }
+      for (const match of text.matchAll(relativeAssetPattern)) {
+        const candidate = resolveCandidate(match[0], foundIn);
+        if (candidate) discovered.set(candidate.relativePath, candidate);
+      }
     }
     for (const match of text.matchAll(cssUrlPattern)) {
       const candidate = resolveCandidate(match[1], foundIn);
@@ -119,6 +167,10 @@ async function fetchRound(discovered) {
       try {
         const response = await fetch(url, {
           redirect: "follow",
+          headers: {
+            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126 Safari/537.36",
+            referer: source.href,
+          },
           signal: AbortSignal.timeout(timeoutMs),
         });
         if (response.ok) return response;
@@ -140,6 +192,7 @@ async function fetchRound(discovered) {
       processedPaths.add(candidate.relativePath);
       const destination = join(mirror, ...candidate.relativePath.split("/"));
       if (existsSync(destination)) {
+        sourceUrlByRelativePath.set(candidate.relativePath, candidate.url);
         existing.push({ path: candidate.relativePath, url: candidate.url, foundIn: candidate.foundIn });
         round.existing += 1;
         continue;
@@ -166,6 +219,7 @@ async function fetchRound(discovered) {
         }
         ensureDir(dirname(destination));
         await import("node:fs/promises").then(({ writeFile }) => writeFile(destination, bytes));
+        sourceUrlByRelativePath.set(candidate.relativePath, response.url || candidate.url);
         fetched.push({
           path: candidate.relativePath,
           bytes: bytes.length,

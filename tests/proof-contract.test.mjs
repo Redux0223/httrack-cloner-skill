@@ -30,6 +30,30 @@ test("creates deterministic source-local proof scenarios with locked thresholds"
   assert.match(contract.thresholdFingerprint, /^[a-f0-9]{64}$/);
 });
 
+test("does not require canvas proof when canvas usage exists only in legacy libraries", () => {
+  const contract = buildProofContract({
+    sourceUrl: "https://fixture.example/",
+    localUrl: "http://127.0.0.1:4176/",
+    routes: ["/"],
+    behaviorSummary: { canvas: 8, visibleCanvasMounts: 0 },
+  });
+
+  assert.ok(!contract.scenarios[0].checkpoints.includes("canvas-nonblank"));
+  assert.equal(contract.scenarios[0].animationFrameSamples, undefined);
+});
+
+test("samples the animated home route without multiplying every route proof", () => {
+  const contract = buildProofContract({
+    sourceUrl: "https://fixture.example/",
+    localUrl: "http://127.0.0.1:4176/",
+    routes: ["/", "/about"],
+    behaviorSummary: { animationFrames: 2 },
+  });
+  assert.equal(contract.scenarios.find((scenario) => scenario.route === "/").animationFrameSamples, 12);
+  assert.equal(contract.scenarios.find((scenario) => scenario.route === "/").animationFrameIntervalMs, 250);
+  assert.equal(contract.scenarios.find((scenario) => scenario.route === "/about").animationFrameSamples, undefined);
+});
+
 test("applies site-specific actions without allowing threshold overrides", () => {
   const contract = buildProofContract({
     sourceUrl: "https://fixture.example/",

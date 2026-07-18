@@ -86,6 +86,38 @@ test("continues proof when a page never reaches network idle", async () => {
   }
 });
 
+test("continues when a streaming document mounts before domcontentloaded", async () => {
+  const servers = [];
+  const start = async () => {
+    const openResponses = new Set();
+    const server = createServer((_request, response) => {
+      openResponses.add(response);
+      response.on("close", () => openResponses.delete(response));
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.write('<!doctype html><html><head><title>Mounted</title></head><body><main>Ready</main></body></html>');
+      setTimeout(() => response.end(), 500);
+    });
+    await new Promise((resolvePromise) => server.listen(0, "127.0.0.1", resolvePromise));
+    servers.push({ server, openResponses });
+    return `http://127.0.0.1:${server.address().port}/`;
+  };
+  const sourceUrl = await start();
+  const localUrl = await start();
+
+  try {
+    const contract = buildProofContract({ sourceUrl, localUrl, routes: ["/"], behaviorSummary: {} });
+    contract.environments = [contract.environments[0]];
+    contract.scenarios[0].navigationTimeoutMs = 150;
+    const result = await runProof({ contract, outputDir: mkdtempSync(join(tmpdir(), "proof-streaming-document-")) });
+    assert.equal(result.passed, true, JSON.stringify(result.scenarios[0]?.findings));
+  } finally {
+    for (const { server, openResponses } of servers) {
+      for (const response of openResponses) response.destroy();
+      await new Promise((resolvePromise) => server.close(resolvePromise));
+    }
+  }
+});
+
 test("normalizes the headless WebGL renderer for source compatibility checks", async () => {
   const html = `<!doctype html><html><head><title>GPU</title></head><body><main id="root"></main><script>
     const canvas = document.createElement('canvas');
@@ -279,6 +311,104 @@ test("detects a local scroll lock during a measured scroll flow", async () => {
     const result = await runProof({ contract, outputDir: mkdtempSync(join(tmpdir(), "proof-scroll-lock-")) });
     assert.equal(result.passed, false);
     assert.ok(result.scenarios.some((scenario) => scenario.findings.some((finding) => finding.code === "checkpoint-scroll-y-mismatch")));
+  } finally {
+    await source.close();
+    await local.close();
+  }
+});
+
+test("does not report scroll-y mismatch when both pages align to their own bottom", async () => {
+  const source = await serve(`<!doctype html><html><head><title>Scroll</title><style>html,body{margin:0}.spacer{height:3000px}</style></head><body><main><div class="spacer">Depth</div></main></body></html>`);
+  const local = await serve(`<!doctype html><html><head><title>Scroll</title><style>html,body{margin:0}.spacer{height:3004px}</style></head><body><main><div class="spacer">Depth</div></main></body></html>`);
+
+  try {
+    const contract = applyProofProfile(buildProofContract({
+      sourceUrl: source.url,
+      localUrl: local.url,
+      routes: ["/"],
+      behaviorSummary: { interactionFamilies: ["scroll"] },
+    }), {
+      scenarios: [{
+        id: "scroll-bottom",
+        route: "/",
+        actions: [
+          { type: "goto", route: "/" },
+          { type: "checkpoint", id: "before-scroll", selector: "body" },
+          { type: "wheel", deltaY: 1200, repeat: 2, align: "end" },
+          { type: "checkpoint", id: "after-scroll", selector: "body", requireChangeFrom: "before-scroll" },
+        ],
+      }],
+    });
+    const result = await runProof({ contract, outputDir: mkdtempSync(join(tmpdir(), "proof-scroll-bottom-")) });
+    const findings = result.scenarios.flatMap((scenario) => scenario.findings);
+    assert.ok(!findings.some((finding) => finding.code === "checkpoint-scroll-y-mismatch"));
+    assert.ok(findings.some((finding) => finding.code === "checkpoint-scroll-depth-mismatch"));
+  } finally {
+    await source.close();
+    await local.close();
+  }
+});
+
+test("re-aligns to the bottom after scroll-triggered lazy layout growth", async () => {
+  const source = await serve(`<!doctype html><html><head><title>Scroll</title><style>html,body{margin:0}.spacer{height:3000px}</style></head><body><main><div class="spacer">Depth</div></main><script>addEventListener('scroll',()=>setTimeout(()=>document.querySelector('.spacer').style.height='3400px',50),{once:true})</script></body></html>`);
+  const local = await serve(`<!doctype html><html><head><title>Scroll</title><style>html,body{margin:0}.spacer{height:3400px}</style></head><body><main><div class="spacer">Depth</div></main></body></html>`);
+
+  try {
+    const contract = applyProofProfile(buildProofContract({
+      sourceUrl: source.url,
+      localUrl: local.url,
+      routes: ["/"],
+      behaviorSummary: { interactionFamilies: ["scroll"] },
+    }), {
+      scenarios: [{
+        id: "lazy-scroll-bottom",
+        route: "/",
+        actions: [
+          { type: "goto", route: "/" },
+          { type: "checkpoint", id: "before-scroll", selector: "body" },
+          { type: "wheel", deltaY: 1200, repeat: 2, align: "end", settleMs: 100 },
+          { type: "checkpoint", id: "after-scroll", selector: "body", requireChangeFrom: "before-scroll" },
+        ],
+      }],
+    });
+    const result = await runProof({ contract, outputDir: mkdtempSync(join(tmpdir(), "proof-lazy-scroll-bottom-")) });
+    const sourceCheckpoint = result.scenarios[0].source.actionTrace.checkpoints["after-scroll"];
+    const localCheckpoint = result.scenarios[0].local.actionTrace.checkpoints["after-scroll"];
+    assert.equal(sourceCheckpoint.scroll.y, sourceCheckpoint.scroll.maxY);
+    assert.equal(localCheckpoint.scroll.y, localCheckpoint.scroll.maxY);
+    assert.equal(sourceCheckpoint.scroll.maxY, localCheckpoint.scroll.maxY);
+  } finally {
+    await source.close();
+    await local.close();
+  }
+});
+
+test("canonicalizes tab-backed carousels without scrolling the page", async () => {
+  const page = (selected, drift) => `<!doctype html><html><head><title>Tabs</title></head><body>
+    <div class="slick-slider"></div>
+    <div role="tablist"><button role="tab" aria-selected="${selected === 0}">One</button><button role="tab" aria-selected="${selected === 1}">Two</button></div>
+    <main>${selected === 0 ? "One" : "Two"}</main>
+    <script>
+      document.querySelectorAll('[role=tab]').forEach((tab,index)=>tab.addEventListener('click',()=>{document.querySelectorAll('[role=tab]').forEach((item,itemIndex)=>item.setAttribute('aria-selected',String(itemIndex===index)));document.querySelector('main').textContent=index===0?'One':'Two'}));
+      const slider = document.querySelector('.slick-slider');
+      const timer = setTimeout(() => { document.querySelector('main').textContent = ${JSON.stringify(drift)}; }, 80);
+      slider.slick = { slickPause: () => clearTimeout(timer), slickGoTo: () => {} };
+    </script>
+  </body></html>`;
+  const source = await serve(page(1, "Source drift"));
+  const local = await serve(page(0, "Local drift"));
+
+  try {
+    const contract = buildProofContract({ sourceUrl: source.url, localUrl: local.url, routes: ["/"], behaviorSummary: {} });
+    contract.environments = [contract.environments[0]];
+    contract.scenarios[0].actions = [
+      { type: "goto", route: "/" },
+      { type: "canonicalize-tabs", settleMs: 100 },
+    ];
+    const result = await runProof({ contract, outputDir: mkdtempSync(join(tmpdir(), "proof-canonical-tabs-")) });
+    assert.equal(result.passed, true, JSON.stringify(result.scenarios[0]?.findings));
+    assert.equal(result.scenarios[0].source.visibleText, "One Two One");
+    assert.equal(result.scenarios[0].local.visibleText, "One Two One");
   } finally {
     await source.close();
     await local.close();

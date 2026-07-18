@@ -63,7 +63,7 @@ Keep the execution model simple and continue until a runnable project exists:
 
 Static analysis is supporting evidence, not the product. Only missing TanStack routing, direct HTML/CSS assets, automatic external runtime requests, build failure, or an observed browser failure may stop delivery. Bundle-only asset guesses, provenance differences, architecture debt, and parser uncertainty are diagnostics and must not prevent a working preview.
 
-Source/local parity differences and proof-tool failures are diagnostics. Record them, but do not let the proof machinery block a project that builds, runs locally, has no automatic external requests, and works in the browser.
+Source/local parity differences and proof-tool failures block delivery until repaired. A buildable project is not a successful clone when the rendered structure, page height, visible media, navigation, or required interactions differ materially from the source.
 
 When the browser requests a local JS, JSON, shader, worker, model, audio, or video path and receives the SPA HTML fallback, treat that as a real missing runtime asset. Recover the source bytes or remove the reachable request, then retry. Do not hide the failure with longer waits or fabricated empty files.
 
@@ -90,7 +90,7 @@ Delivery requires:
 - The important routes and interactions work in a local browser preview.
 - The preview URL is opened for the user.
 
-Proof, provenance, architecture, and migration reports remain useful diagnostics, but they do not independently block a working project. Do not claim a pure React rewrite when a captured runtime remains; call it a `React adapter` and keep the runtime local and sanitized.
+Proof, provenance, architecture, and migration reports are delivery evidence. Any failed authoritative proof, empty screenshot set, unexpected top-level navigation, or material source/local mismatch must enter `REPAIR_LOOP`. Do not claim a pure React rewrite when a captured runtime remains; call it a `React adapter` and keep the runtime local and sanitized.
 
 ## Self-Contained Rule
 

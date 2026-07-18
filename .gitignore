@@ -19,4 +19,5 @@ tests/fixture/dynamic-mirror/
 tests/fixture/error-document-mirror/
 tests/fixture/jsx-attributes-mirror/
 tests/fixture/navigation-mirror/
+tests/fixture/non-page-document-mirror/
 tests/fixture/sanitization-mirror/

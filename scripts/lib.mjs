@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, extname, join, parse as parsePath, posix, relative, resolve, sep } from "node:path";
@@ -45,15 +46,16 @@ export function classifyAssetContent(value, { contentType = "", expectedExtensio
   const bytes = Buffer.isBuffer(value) ? value : Buffer.from(String(value));
   const sample = bytes.subarray(0, 4096);
   const text = sample.toString("utf8").replace(/^\uFEFF/, "").trimStart();
+  const markup = text.replace(/^(?:<!--[\s\S]*?-->\s*)+/, "");
   const mime = String(contentType).split(";", 1)[0].trim().toLowerCase();
   const extension = String(expectedExtension).toLowerCase();
 
   if (sample.includes(0)) return "binary";
   if (
     mime === "text/html"
-    || /^<!doctype\s+html\b/i.test(text)
-    || /^<html(?:\s|>)/i.test(text)
-    || (/^<(?:head|body)(?:\s|>)/i.test(text) && /<\/(?:head|body)>/i.test(text))
+    || /^<!doctype\s+html\b/i.test(markup)
+    || /^<html(?:\s|>)/i.test(markup)
+    || (/^<(?:head|body)(?:\s|>)/i.test(markup) && /<\/(?:head|body)>/i.test(markup))
   ) return "html";
   if (mime === "application/json" || mime.endsWith("+json")) return "json";
   if (/^[\[{]/.test(text)) {
@@ -176,6 +178,24 @@ export function isRemote(value) {
 
 export function isTracker(value) {
   return TRACKER_HOSTS.some((host) => String(value).includes(host));
+}
+
+export function externalAssetRelativePath(value) {
+  const url = value instanceof URL ? value : new URL(String(value));
+  const host = url.host.replace(/[^A-Za-z0-9._-]/g, "_");
+  const segments = decodeURIComponent(url.pathname)
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => segment === ".." ? "_" : segment.replace(/[<>:"\\|?*\u0000-\u001F]/g, "_"));
+  if (segments.length === 0) segments.push("index");
+  if (url.search) {
+    const last = segments.pop();
+    const extension = extname(last);
+    const stem = extension ? last.slice(0, -extension.length) : last;
+    const queryHash = createHash("sha256").update(url.search).digest("hex").slice(0, 12);
+    segments.push(`${stem}.__q_${queryHash}${extension}`);
+  }
+  return posix.join("_external", host, ...segments);
 }
 
 export function stripQueryAndHash(value) {

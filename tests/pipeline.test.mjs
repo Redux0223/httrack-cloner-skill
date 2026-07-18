@@ -13,6 +13,8 @@ const jsxInput = join(evalRoot, "fixture/jsx-attributes-mirror");
 const jsxOutput = join(evalRoot, "fixture/jsx-attributes-output");
 const errorInput = join(evalRoot, "fixture/error-document-mirror");
 const errorOutput = join(evalRoot, "fixture/error-document-output");
+const nonPageInput = join(evalRoot, "fixture/non-page-document-mirror");
+const nonPageOutput = join(evalRoot, "fixture/non-page-document-output");
 const runner = resolve("./scripts/run-pipeline.mjs");
 const offlineRules = join(evalRoot, "fixture/offline-rules.json");
 
@@ -48,10 +50,13 @@ test("converts an HTTrack-style mirror into a local React project", () => {
   assert.match(homeSource, /useLocalRuntimeAdapter/);
   assert.match(homeSource, /data-local-runtime-adapter/);
   assert.match(homeSource, /\/assets\/site[.]js/);
+  assert.match(homeSource, /document\.documentElement\.lang = "en"/);
   assert.doesNotMatch(mainSource, /StrictMode/);
   assert.match(mainSource, /network-policy/);
   assert.match(indexSource, /Content-Security-Policy/);
   assert.match(indexSource, /connect-src 'self'/);
+  assert.match(indexSource, /name="viewport" content="width=device-width, initial-scale=1.0"/);
+  assert.match(indexSource, /<html lang="en">/);
   assert.match(networkPolicy, /input instanceof Request/);
   assert.doesNotMatch(networkPolicy, /init instanceof Request/);
 
@@ -122,9 +127,15 @@ test("emits type-safe React attributes from captured HTML", () => {
   rmSync(jsxInput, { recursive: true, force: true });
   rmSync(jsxOutput, { recursive: true, force: true });
   cpSync(input, jsxInput, { recursive: true });
+  mkdirSync(join(jsxInput, "__embeds/youtube"), { recursive: true });
+  writeFileSync(
+    join(jsxInput, "__embeds/youtube/test-video.html"),
+    "<!doctype html><title>Offline video</title><style>img{display:block;width:100%;height:100%}</style>",
+  );
+  writeFileSync(join(jsxInput, "__embeds/map-fixture.png"), "map snapshot");
   appendFileSync(
     join(jsxInput, "index.html"),
-    '<video autoplay playsinline muted style="--delay: 1; object-fit: cover"></video><img class="" data-empty>',
+    '<video autoplay playsinline muted style="--delay: 1; object-fit: cover"><source src="#" type="video/mp4"></video><iframe src="https://www.youtube.com/embed/test-video" frameborder="0" allowfullscreen></iframe><div id="map-fixture" class="mapContainer"></div><input value="ready" checked><img class="" data-empty><font color="red">Legacy</font><span style="color:red;color:blue"></span><track srclang="en"><style>.broken{transform:translateX:;}\n.trailing{color:red}\n;\n#module {!bgVideo!}{bgVideoUrl:}</style>',
   );
 
   const result = spawnSync(
@@ -139,6 +150,23 @@ test("emits type-safe React attributes from captured HTML", () => {
   assert.match(homeSource, /style=\{\{ "--delay": "1", objectFit: "cover" \} as React\.CSSProperties\}/);
   assert.match(homeSource, /className=\{""\}/);
   assert.match(homeSource, /data-empty=\{""\}/);
+  assert.match(homeSource, /style=\{\{ color: "blue" \} as React\.CSSProperties\}/);
+  assert.match(homeSource, /srcLang=\{"en"\}/);
+  assert.doesNotMatch(homeSource, /<source[^>]+src=/);
+  assert.match(homeSource, /defaultValue=\{"ready"\} defaultChecked/);
+  assert.match(homeSource, /src=\{"\/__embeds\/youtube\/test-video\.html"\} frameBorder=\{"0"\} allowFullScreen/);
+  assert.match(homeSource, /data-offline-embed-snapshot=\{"canvas"\}/);
+  assert.ok(existsSync(join(jsxOutput, "public/__embeds/youtube/test-video.html")));
+  const manifest = JSON.parse(readFileSync(join(jsxOutput, "reports/conversion-manifest.json"), "utf8"));
+  assert.ok(!manifest.routes.includes("/__embeds/youtube/test-video"));
+  const capturedTypes = readFileSync(join(jsxOutput, "src/types/captured-html.d.ts"), "utf8");
+  assert.match(capturedTypes, /interface HTMLAttributes/);
+  assert.match(capturedTypes, /font:/);
+  const sourceCss = readFileSync(join(jsxOutput, "src/styles/source.css"), "utf8");
+  assert.doesNotMatch(sourceCss, /transform:\s*translateX\s*:/);
+  assert.doesNotMatch(sourceCss, /^\s*;\s*$/m);
+  assert.doesNotMatch(sourceCss, /\{!bgVideo!\}/);
+  assert.doesNotMatch(sourceCss, /img\s*\{\s*display:block;width:100%;height:100%/);
 });
 
 test("does not turn captured error responses for assets into application routes", () => {
@@ -163,4 +191,43 @@ test("does not turn captured error responses for assets into application routes"
   assert.ok(!manifest.routes.includes("/src/css/fonts/Geist"));
   assert.ok(manifest.ignoredErrorDocuments.some((entry) => entry.siteRelative === "src/css/fonts/Geist.html"));
   assert.doesNotMatch(readFileSync(join(errorOutput, "src/styles/source.css"), "utf8"), /Geist\.html/);
+});
+
+test("does not turn plain-text endpoint responses saved as html into routes", () => {
+  rmSync(nonPageInput, { recursive: true, force: true });
+  rmSync(nonPageOutput, { recursive: true, force: true });
+  cpSync(input, nonPageInput, { recursive: true });
+  writeFileSync(join(nonPageInput, "PageBaiduPush.html"), "error");
+  writeFileSync(join(nonPageInput, "CachedPage.html"), "<!-- cache metadata -->\n<!doctype html><html><body><main>Cached</main></body></html>");
+  writeFileSync(join(nonPageInput, "MissingEndpoint.html"), "<!doctype html><html><head><title>Page unavailable</title></head><body><h1>404 Not Found</h1></body></html>");
+
+  const result = spawnSync(
+    process.execPath,
+    [runner, "--input", nonPageInput, "--output", nonPageOutput, "--source-url", "https://fixture.example/"],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  const manifest = JSON.parse(readFileSync(join(nonPageOutput, "reports/conversion-manifest.json"), "utf8"));
+  assert.ok(manifest.ignoredNonPageDocuments.some((entry) => entry.siteRelative === "PageBaiduPush.html"));
+  assert.ok(!manifest.routes.includes("/PageBaiduPush"));
+  assert.ok(manifest.routes.includes("/CachedPage"));
+  assert.ok(!manifest.routes.includes("/MissingEndpoint"));
+  assert.ok(manifest.ignoredErrorDocuments.some((entry) => entry.siteRelative === "MissingEndpoint.html"));
+});
+
+test("does not invent a viewport meta tag when the captured root page omits it", () => {
+  rmSync(nonPageInput, { recursive: true, force: true });
+  rmSync(nonPageOutput, { recursive: true, force: true });
+  cpSync(input, nonPageInput, { recursive: true });
+  const indexFile = join(nonPageInput, "index.html");
+  writeFileSync(indexFile, readFileSync(indexFile, "utf8").replace(/\s*<meta[^>]+name="viewport"[^>]*>/i, ""));
+
+  const result = spawnSync(
+    process.execPath,
+    [runner, "--input", nonPageInput, "--output", nonPageOutput, "--source-url", "https://fixture.example/"],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.doesNotMatch(readFileSync(join(nonPageOutput, "index.html"), "utf8"), /name="viewport"/);
 });
